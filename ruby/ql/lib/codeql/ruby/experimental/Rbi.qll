@@ -26,24 +26,27 @@ module Rbi {
     } or
     TVoidType()
 
+  /** A return type of a method. */
   class ReturnType extends TReturnType {
     /** Gets a textual representation of this node. */
     cached
     string toString() {
-      if exists(this.getRbiType())
-      then result = this.getRbiType().toString()
-      else result = "(void)"
+      result = this.getRbiType().toString() or
+      this.isVoidType() and result = "(void)"
     }
 
+    /** Gets the underlying RbiType, if any. */
     RbiType getRbiType() {
       exists(RbiType t | this = TRbiType(t) | result = t)
     }
 
+    /** Holds if this is the void type. */
     predicate isVoidType() {
       this = TVoidType()
     }
   }
 
+  /** A call to `sig` to define the type signature of a method. */
   class SigCall extends DataFlow::CallNode {
     SigCall() { this.getMethodName() = "sig" }
 
@@ -139,39 +142,99 @@ module Rbi {
     }
   }
 
-  abstract class RbiCallType extends RbiType, DataFlow::CallNode {
-    RbiCallType() { this.getReceiver() instanceof TReadAccess }
+  /** A call node that represents an `RbiType`. */
+  abstract class RbiTypeCall extends RbiType, DataFlow::CallNode {
+    RbiTypeCall() { this.getReceiver() instanceof TReadAccess }
   }
 
-  class RbiUnionType extends RbiCallType {
+  /**
+   * A call to `T.any`, - a method that takes `RbiType` parameters, and returns
+   * a type representing the union of those types.
+   */
+  class RbiUnionType extends RbiTypeCall {
     RbiUnionType() { this.getMethodName() = "any" }
 
     RbiType getAType() { result = this.getArgument(_) }
   }
 
-  class RbiUntypedType extends RbiCallType {
+  /**
+   * A call to `T.untyped`.
+   */
+  class RbiUntypedType extends RbiTypeCall {
     RbiUntypedType() { this.getMethodName() = "untyped" }
   }
 
-  class RbiNilableType extends RbiCallType {
+  /**
+   * A call to `T.nilable`, creating a nilable version of the type provided as
+   * an argument.
+   */
+  class RbiNilableType extends RbiTypeCall {
     RbiNilableType() { this.getMethodName() = "nilable" }
+
+    RbiType getUnderlyingType() {
+      result = this.getArgument(0)
+    }
   }
+
+  /**
+   * A call to `T.type_alias`. The return value of this call can be assigned to
+   * create a type alias.
+   */
+  class RbiTypeAlias extends RbiTypeCall {
+    RbiTypeAlias() { this.getMethodName() = "type_alias" }
+
+    // TODO: avoid mapping to AST layer
+    /**
+     * Gets the type aliased by this call.
+     */
+    RbiType getAliasedType() {
+      result.asExpr().getExpr() = this.getBlock().asExpr().(ExprNodes::StmtSequenceCfgNode).getExpr().getLastStmt()
+    }
+
+    // TODO: use dataflow to map from uses of aliases back to the underlying type
+  }
+
+  /**
+   * A call to `T.self_type`.
+   */
+  class RbiSelfType extends RbiTypeCall {
+    RbiSelfType() { this.getMethodName() = "self_type" }
+  }
+
+  /**
+   * A call to `T.noreturn`.
+   */
+  class RbiNoreturnType extends RbiTypeCall {
+    RbiNoreturnType() { this.getMethodName() = "noreturn" }
+  }
+
+  // TODO: class Foo < T::Enum
+
+  // TODO: class Foo < T::Struct
+
+  // TODO: inheritance?
 
   class ParameterType extends ExprNodes::PairCfgNode {
     private RbiType t;
 
     ParameterType() { t.asExpr() = this.getValue() }
 
+    /** Gets the `RbiType` of this parameter. */
     RbiType getType() { result = t }
-  }
 
-  predicate parameterHasType(NamedParameter p, RbiType t) {
-    exists(SigCall sc, ParameterType tp |
-      sc.getAssociatedMethod().getExpr().getAParameter() = p and
-      tp = sc.getAParamsCall().getAParameterType() and
-      t = tp.getType() and
-      p.getName() = tp.getKey().getConstantValue().getStringlikeValue()
-    )
+    private SigCall getOuterSigCall() {
+      this = result.getAParamsCall().getAParameterType()
+    }
+
+    private ExprNodes::MethodBaseCfgNode getAssociatedMethod() {
+      result = this.getOuterSigCall().getAssociatedMethod()
+    }
+
+    /** Gets the parameter to which this type applies. */
+    NamedParameter getParameter() {
+      result = this.getAssociatedMethod().getExpr().getAParameter() and
+      result.getName() = this.getKey().getConstantValue().getStringlikeValue()
+    }
   }
 
 }

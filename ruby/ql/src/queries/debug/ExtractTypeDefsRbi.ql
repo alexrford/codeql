@@ -31,6 +31,11 @@ where c.getLocation().getFile().getStem() = "stripe"
 select c, c.getLocation(), c.getSigCall().getLocation()
 */
 
+/*
 from SigCall c, ParameterType t
 where t = c.getAParameterType()
-select c, c.getLocation(), c.getAssociatedMethod(), c.getReturnType(), t.getKey(), t.getType()
+select c, c.getLocation(), c.getAssociatedMethod(), c.getReturnType(), t.getParameter(), t.getType()
+*/
+
+from RbiTypeAlias t
+select t, t.getLocation(), t.getAliasedType()
