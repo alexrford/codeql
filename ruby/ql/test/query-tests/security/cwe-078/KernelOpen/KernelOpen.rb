@@ -22,5 +22,7 @@ class UsersController < ActionController::Base
     if %w(some/const/1.txt some/const/2.txt).include? file
       IO.read(file) # GOOD - file path is sanitised by guard
     end
+
+    IO.read(file)
   end
 end

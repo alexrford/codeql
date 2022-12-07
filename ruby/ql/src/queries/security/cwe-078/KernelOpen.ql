@@ -18,24 +18,47 @@
 import codeql.ruby.DataFlow
 import codeql.ruby.TaintTracking
 import codeql.ruby.dataflow.RemoteFlowSources
-import codeql.ruby.dataflow.BarrierGuards
 import DataFlow::PathGraph
 import codeql.ruby.security.KernelOpenQuery
+private import codeql.ruby.ApiGraphs
 
 class Configuration extends TaintTracking::Configuration {
   Configuration() { this = "KernelOpen" }
 
-  override predicate isSource(DataFlow::Node source) { source instanceof RemoteFlowSource }
-
-  override predicate isSink(DataFlow::Node sink) {
-    sink = any(AmbiguousPathCall r).getPathArgument()
+  override predicate isSource(DataFlow::Node source, DataFlow::FlowState state) {
+    source instanceof RemoteFlowSource and
+    state instanceof NotFilePathSanitized
   }
 
-  override predicate isSanitizer(DataFlow::Node node) {
-    node instanceof StringConstCompareBarrier or
-    node instanceof StringConstArrayInclusionCallBarrier or
-    node instanceof Sanitizer
+  override predicate isSink(DataFlow::Node sink, DataFlow::FlowState state) {
+    sink = any(AmbiguousPathCall r).getPathArgument() and
+    state instanceof NotFilePathSanitized
   }
+
+  override predicate isAdditionalTaintStep(
+    DataFlow::Node nodeFrom, DataFlow::FlowState stateFrom, DataFlow::Node nodeTo,
+    DataFlow::FlowState stateTo
+  ) {
+    nodeTo = API::getTopLevelMember("File").getAMethodCall("join") and
+    stateTo instanceof FilePathSanitized and
+    nodeFrom = nodeTo.(DataFlow::CallNode).getArgument(any(int i | i > 0)) and
+    stateFrom instanceof NotFilePathSanitized
+  }
+
+  override predicate isAdditionalTaintStep(DataFlow::Node nodeFrom, DataFlow::Node nodeTo) {
+    nodeTo = API::getTopLevelMember("File").getAMethodCall("join") and
+    nodeFrom = nodeTo.(DataFlow::CallNode).getArgument(0)
+  }
+
+  override predicate isSanitizer(DataFlow::Node node) { node instanceof Sanitizer }
+}
+
+class FilePathSanitized extends DataFlow::FlowState {
+  FilePathSanitized() { this = "FilePathSanitized" }
+}
+
+class NotFilePathSanitized extends DataFlow::FlowState {
+  NotFilePathSanitized() { this = "NotFilePathSanitized" }
 }
 
 from
