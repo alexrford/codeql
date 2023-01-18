@@ -44,6 +44,8 @@ edges
 | summaries.rb:1:11:1:36 | call to identity :  | summaries.rb:147:16:147:22 | tainted |
 | summaries.rb:1:11:1:36 | call to identity :  | summaries.rb:150:39:150:45 | tainted |
 | summaries.rb:1:11:1:36 | call to identity :  | summaries.rb:150:39:150:45 | tainted |
+| summaries.rb:1:11:1:36 | call to identity :  | summaries.rb:154:27:154:33 | tainted :  |
+| summaries.rb:1:11:1:36 | call to identity :  | summaries.rb:154:27:154:33 | tainted :  |
 | summaries.rb:1:20:1:36 | call to source :  | summaries.rb:1:11:1:36 | call to identity :  |
 | summaries.rb:1:20:1:36 | call to source :  | summaries.rb:1:11:1:36 | call to identity :  |
 | summaries.rb:4:12:7:3 | call to apply_block :  | summaries.rb:9:6:9:13 | tainted2 |
@@ -211,6 +213,7 @@ edges
 | summaries.rb:122:16:122:22 | [post] tainted :  | summaries.rb:145:26:145:32 | tainted |
 | summaries.rb:122:16:122:22 | [post] tainted :  | summaries.rb:147:16:147:22 | tainted |
 | summaries.rb:122:16:122:22 | [post] tainted :  | summaries.rb:150:39:150:45 | tainted |
+| summaries.rb:122:16:122:22 | [post] tainted :  | summaries.rb:154:27:154:33 | tainted :  |
 | summaries.rb:122:16:122:22 | tainted :  | summaries.rb:122:16:122:22 | [post] tainted :  |
 | summaries.rb:122:16:122:22 | tainted :  | summaries.rb:122:25:122:25 | [post] y :  |
 | summaries.rb:122:16:122:22 | tainted :  | summaries.rb:122:33:122:33 | [post] z :  |
@@ -218,6 +221,8 @@ edges
 | summaries.rb:122:33:122:33 | [post] z :  | summaries.rb:125:6:125:6 | z |
 | summaries.rb:128:1:128:1 | [post] x :  | summaries.rb:129:6:129:6 | x |
 | summaries.rb:128:14:128:20 | tainted :  | summaries.rb:128:1:128:1 | [post] x :  |
+| summaries.rb:154:27:154:33 | tainted :  | summaries.rb:155:6:155:33 | call to read_from_synthetic_global |
+| summaries.rb:154:27:154:33 | tainted :  | summaries.rb:155:6:155:33 | call to read_from_synthetic_global |
 nodes
 | summaries.rb:1:11:1:36 | call to identity :  | semmle.label | call to identity :  |
 | summaries.rb:1:11:1:36 | call to identity :  | semmle.label | call to identity :  |
@@ -434,6 +439,10 @@ nodes
 | summaries.rb:147:16:147:22 | tainted | semmle.label | tainted |
 | summaries.rb:150:39:150:45 | tainted | semmle.label | tainted |
 | summaries.rb:150:39:150:45 | tainted | semmle.label | tainted |
+| summaries.rb:154:27:154:33 | tainted :  | semmle.label | tainted :  |
+| summaries.rb:154:27:154:33 | tainted :  | semmle.label | tainted :  |
+| summaries.rb:155:6:155:33 | call to read_from_synthetic_global | semmle.label | call to read_from_synthetic_global |
+| summaries.rb:155:6:155:33 | call to read_from_synthetic_global | semmle.label | call to read_from_synthetic_global |
 subpaths
 invalidSpecComponent
 #select
@@ -533,6 +542,8 @@ invalidSpecComponent
 | summaries.rb:147:16:147:22 | tainted | summaries.rb:1:20:1:36 | call to source :  | summaries.rb:147:16:147:22 | tainted | $@ | summaries.rb:1:20:1:36 | call to source :  | call to source :  |
 | summaries.rb:150:39:150:45 | tainted | summaries.rb:1:20:1:36 | call to source :  | summaries.rb:150:39:150:45 | tainted | $@ | summaries.rb:1:20:1:36 | call to source :  | call to source :  |
 | summaries.rb:150:39:150:45 | tainted | summaries.rb:1:20:1:36 | call to source :  | summaries.rb:150:39:150:45 | tainted | $@ | summaries.rb:1:20:1:36 | call to source :  | call to source :  |
+| summaries.rb:155:6:155:33 | call to read_from_synthetic_global | summaries.rb:1:20:1:36 | call to source :  | summaries.rb:155:6:155:33 | call to read_from_synthetic_global | $@ | summaries.rb:1:20:1:36 | call to source :  | call to source :  |
+| summaries.rb:155:6:155:33 | call to read_from_synthetic_global | summaries.rb:1:20:1:36 | call to source :  | summaries.rb:155:6:155:33 | call to read_from_synthetic_global | $@ | summaries.rb:1:20:1:36 | call to source :  | call to source :  |
 warning
 | CSV type row should have 3 columns but has 1: TooFewColumns |
 | CSV type row should have 3 columns but has 6: TooManyColumns;;Member[Foo].Instance;too;many;columns |

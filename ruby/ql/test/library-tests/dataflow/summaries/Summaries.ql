@@ -63,6 +63,30 @@ private class SummarizedCallableApplyLambda extends SummarizedCallable {
   }
 }
 
+private class SummarizedCallableStoreToSyntheticGlobal extends SummarizedCallable {
+  SummarizedCallableStoreToSyntheticGlobal() { this = "store_to_synthetic_global" }
+
+  override MethodCall getACall() { result.getMethodName() = this }
+
+  override predicate propagatesFlowExt(string input, string output, boolean preservesValue) {
+    input = "Argument[0]" and
+    output = "SyntheticGlobal[foo]" and
+    preservesValue = true
+  }
+}
+
+private class SummarizedCallableReadFromSyntheticGlobal extends SummarizedCallable {
+  SummarizedCallableReadFromSyntheticGlobal() { this = "read_from_synthetic_global" }
+
+  override MethodCall getACall() { result.getMethodName() = this }
+
+  override predicate propagatesFlowExt(string input, string output, boolean preservesValue) {
+    input = "SyntheticGlobal[foo]" and
+    output = "ReturnValue" and
+    preservesValue = true
+  }
+}
+
 private class StepsFromModel extends ModelInput::SummaryModelCsv {
   override predicate row(string row) {
     row =

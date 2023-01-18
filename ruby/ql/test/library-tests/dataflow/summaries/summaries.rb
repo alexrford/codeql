@@ -150,3 +150,6 @@ Foo.secondArrayElementIsSink([tainted, "safe", "safe"])
 Foo.secondArrayElementIsSink(["safe", tainted, "safe"]) # $ hasValueFlow=tainted
 Foo.secondArrayElementIsSink(["safe", "safe", tainted])
 Foo.secondArrayElementIsSink([tainted] * 10) # $ MISSING: hasValueFlow=tainted
+
+store_to_synthetic_global(tainted)
+sink(read_from_synthetic_global()) # $ hasValueFlow=tainted
