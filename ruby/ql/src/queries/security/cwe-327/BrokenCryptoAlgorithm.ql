@@ -13,13 +13,17 @@
 import codeql.ruby.AST
 import codeql.ruby.Concepts
 
-from Cryptography::CryptographicOperation operation, string msgPrefix
+from
+  Cryptography::CryptographicOperation operation, Cryptography::CryptographicAlgorithm algorithm,
+  string msgPrefix
 where
-  exists(Cryptography::CryptographicAlgorithm algorithm |
-    algorithm = operation.getAlgorithm() and
+  algorithm = operation.getAlgorithm() and
+  // `Cryptography::HashingAlgorithm` and `Cryptography::PasswordHashingAlgorithm` are
+  // handled by `py/weak-sensitive-data-hashing`
+  algorithm instanceof Cryptography::EncryptionAlgorithm and
+  (
     algorithm.isWeak() and
-    msgPrefix = "The cryptographic algorithm " + algorithm.getName() and
-    not algorithm instanceof Cryptography::HashingAlgorithm
+    msgPrefix = "The cryptographic algorithm " + operation.getAlgorithm().getName()
   )
   or
   operation.getBlockMode().isWeak() and msgPrefix = "The block mode " + operation.getBlockMode()
