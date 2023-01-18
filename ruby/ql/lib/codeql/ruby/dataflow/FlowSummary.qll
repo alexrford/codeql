@@ -156,3 +156,15 @@ abstract class SimpleSummarizedCallable extends SummarizedCallable {
 }
 
 class RequiredSummaryComponentStack = Impl::Public::RequiredSummaryComponentStack;
+
+private class SomeSummary extends SummarizedCallable {
+  SomeSummary() { this = "foo" }
+
+  override MethodCall getACall() { result.getMethodName() = this }
+
+  override predicate propagatesFlowExt(string input, string output, boolean preservesValue) {
+    input = "Argument[0]" and
+    output = "SyntheticGlobal[bar]" and
+    preservesValue = true
+  }
+}
