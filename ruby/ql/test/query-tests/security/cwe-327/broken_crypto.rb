@@ -105,3 +105,12 @@ sha1 << 'message' # << is an alias for update
 
 OpenSSL::Digest.digest('SHA1', "abc") # OK: don't report hash algorithm even if it is weak
 OpenSSL::Digest.digest('SHA3-512', "abc") # GOOD: strong hash algorithm
+
+def foo(cert)
+weak = OpenSSL::Cipher.new('des3')
+weak.encrypt
+weak.random_key
+# BAD: encrypting data using a weak cipher
+weak.update(cert)
+weak.final
+end

@@ -1,7 +1,7 @@
 /**
  * @name Use of a broken or weak cryptographic algorithm
  * @description Using broken or weak cryptographic algorithms can compromise security.
- * @kind problem
+ * @kind path-problem
  * @problem.severity warning
  * @security-severity 7.5
  * @precision high
@@ -11,20 +11,15 @@
  */
 
 import codeql.ruby.AST
+import codeql.ruby.DataFlow
+import codeql.ruby.security.BrokenCryptoAlgorithmQuery
+import codeql.ruby.security.SensitiveActions
 import codeql.ruby.Concepts
+import DataFlow::PathGraph
 
-from
-  Cryptography::CryptographicOperation operation, Cryptography::CryptographicAlgorithm algorithm,
-  string msgPrefix
+from Configuration cfg, DataFlow::PathNode source, DataFlow::PathNode sink
 where
-  algorithm = operation.getAlgorithm() and
-  // `Cryptography::HashingAlgorithm` and `Cryptography::PasswordHashingAlgorithm` are
-  // handled by `py/weak-sensitive-data-hashing`
-  algorithm instanceof Cryptography::EncryptionAlgorithm and
-  (
-    algorithm.isWeak() and
-    msgPrefix = "The cryptographic algorithm " + operation.getAlgorithm().getName()
-  )
-  or
-  operation.getBlockMode().isWeak() and msgPrefix = "The block mode " + operation.getBlockMode()
-select operation, msgPrefix + " is broken or weak, and should not be used."
+  cfg.hasFlowPath(source, sink) and
+  not source.getNode() instanceof CleartextPasswordExpr // TODO: should be flagged by rb/insufficient-password-hash
+select sink.getNode(), source, sink, "A broken or weak cryptographic algorithm depends on $@.",
+  source.getNode(), "sensitive data from " + source.getNode().(Source).describe()
