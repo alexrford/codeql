@@ -32,6 +32,8 @@ module BrokenCryptoAlgorithm {
    * in broken or weak cryptographic algorithms.
    */
   class SensitiveExprSource extends Source instanceof SensitiveNode {
+    SensitiveExprSource() { this.getClassification() != "id" }
+
     override string describe() { result = SensitiveNode.super.describe() }
   }
 
