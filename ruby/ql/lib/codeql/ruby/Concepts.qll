@@ -472,6 +472,12 @@ module Http {
       override string getSourceType() { result = this.(RequestInputAccess).getSourceType() }
     }
 
+    private class ParamsCallAsRemoteFlowSource extends RemoteFlowSource::Range instanceof DataFlow::CallNode {
+      ParamsCallAsRemoteFlowSource() { this.getMethodName() = "params" }
+
+      override string getSourceType() { result = "call to params" }
+    }
+
     /**
      * A function that will handle incoming HTTP requests.
      *
