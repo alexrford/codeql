@@ -8,10 +8,12 @@
 
 import ruby
 
+/** A call to a method named `sync` */
 private class SyncCall extends Ast::MethodCall {
   SyncCall() { this.getMethodName() = "sync" }
 }
 
+/** A call to a method named `then` */
 private class ThenCall extends Ast::MethodCall {
   ThenCall() { this.getMethodName() = "then" }
 }
@@ -20,7 +22,7 @@ private newtype TCallPredOption =
   TCallPredNone() or
   TCallPredSome(CallWithinThen c)
 
-/** An optional Boolean value. */
+/** An optional `CallWithinThen` */
 private class CallPredOption extends TCallPredOption {
   string toString() {
     this = TCallPredNone() and result = "<none>"
@@ -31,6 +33,11 @@ private class CallPredOption extends TCallPredOption {
   CallWithinThen getCall() { this = TCallPredSome(result) }
 }
 
+/**
+ * A method call within the block passed to a `ThenCall`.
+ * This includes method calls that are called transitively, i.e. may not be
+ * syntactically within the then block.
+ */
 private class CallWithinThen extends Ast::MethodCall {
   private ThenCall tc;
   private CallPredOption pred;
@@ -41,28 +48,17 @@ private class CallWithinThen extends Ast::MethodCall {
     or
     exists(CallWithinThen cwt |
       cwt.getATarget() = this.getEnclosingCallable() and
-      tc = cwt.getThenCall() and
+      tc = cwt.getAThenCall() and
       pred = TCallPredSome(cwt)
     )
   }
 
-  ThenCall getThenCall() { result = tc }
+  ThenCall getAThenCall() { result = tc }
 
-  CallWithinThen getPred() { result = pred.getCall() }
+  CallWithinThen getAPredecessor() { result = pred.getCall() }
 }
 
-query predicate edges(CallWithinThen a, CallWithinThen b) { b.getPred() = a }
-
-query predicate nodes(CallWithinThen a, string key, string val) {
-  key = "semmle.label" and val = a.toString()
-}
-
-query predicate subpaths(
-  CallWithinThen arg, CallWithinThen par, CallWithinThen ret, CallWithinThen out
-) {
-  none()
-}
-
+/** Holds if there is a path of length 0 or more between `source` and `sink` in the call graph */
 predicate hasPath(CallWithinThen source, CallWithinThen sink) {
   source = sink
   or
@@ -74,11 +70,23 @@ predicate hasPath(CallWithinThen source, CallWithinThen sink) {
   )
 }
 
+query predicate edges(CallWithinThen a, CallWithinThen b) { b.getAPredecessor() = a }
+
+query predicate nodes(CallWithinThen a, string key, string val) {
+  key = "semmle.label" and val = a.toString()
+}
+
+query predicate subpaths(
+  CallWithinThen arg, CallWithinThen par, CallWithinThen ret, CallWithinThen out
+) {
+  none()
+}
+
 from CallWithinThen source, CallWithinThen sink, ThenCall tc
 where
   sink instanceof SyncCall and
-  not exists(source.getPred()) and
+  not exists(source.getAPredecessor()) and
   hasPath(source, sink) and
-  tc = source.getThenCall()
+  tc = source.getAThenCall()
 select sink, source, sink, "Call to $@ from within $@", sink, sink.getMethodName(), tc,
   tc.getMethodName()
