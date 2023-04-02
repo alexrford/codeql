@@ -31,4 +31,8 @@ class Configuration extends TaintTracking::Configuration {
     super.isSanitizer(node) or
     node instanceof Sanitizer
   }
+
+  override predicate isSanitizerIn(DataFlow::Node node) {
+    node instanceof Source
+  }
 }
