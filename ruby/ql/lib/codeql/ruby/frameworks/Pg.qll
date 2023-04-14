@@ -17,7 +17,7 @@ module Pg {
   private class SqlSummary extends SummarizedCallable {
     SqlSummary() { this = "PG::Connection.open()" }
 
-    override MethodCall getACall() { result = any(PostgresqlConnection c).asExpr().getExpr() }
+    override MethodCall getACall() { result = any(PgConnection c).asExpr().getExpr() }
 
     override predicate propagatesFlowExt(string input, string output, boolean preservesValue) {
       input = "Argument[0]" and output = "ReturnValue" and preservesValue = false
@@ -25,18 +25,18 @@ module Pg {
   }
 
   /** A call to PG::Connection.open() is used to establish a connection to a PostgreSQL database. */
-  private class PostgresqlConnection extends DataFlow::CallNode {
-    PostgresqlConnection() {
+  private class PgConnection extends DataFlow::CallNode {
+    PgConnection() {
       this = API::getTopLevelMember("PG").getMember("Connection").getAMethodCall("open")
     }
   }
 
   /** A call to `PG::Connection.open().exec`, considered as a SQL construction. */
-  private class PostgresqlConstruction extends SqlConstruction::Range, DataFlow::CallNode {
+  private class PgConstruction extends SqlConstruction::Range, DataFlow::CallNode {
     private DataFlow::Node query;
 
-    PostgresqlConstruction() {
-      exists(PostgresqlConnection pg_connection |
+    PgConstruction() {
+      exists(PgConnection pg_connection |
         this =
           pg_connection.getAMethodCall(["exec", "async_exec", "exec_params", "async_exec_params"]) and
         query = this.getArgument(0)
