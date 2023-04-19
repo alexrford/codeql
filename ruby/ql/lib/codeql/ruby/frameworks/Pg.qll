@@ -11,11 +11,11 @@ private import codeql.ruby.Concepts
  */
 module Pg {
   /**
-   * Flow summary for `PG::Connection.open()`. This method wraps a SQL string, marking it as
+   * Flow summary for `PG.new()`. This method wraps a SQL string, marking it as
    * safe.
    */
   private class SqlSummary extends SummarizedCallable {
-    SqlSummary() { this = "PG::Connection.open()" }
+    SqlSummary() { this = "PG.new()" }
 
     override MethodCall getACall() { result = any(PgConnection c).asExpr().getExpr() }
 
@@ -27,7 +27,12 @@ module Pg {
   /** A call to PG::Connection.open() is used to establish a connection to a PostgreSQL database. */
   private class PgConnection extends DataFlow::CallNode {
     PgConnection() {
-      this = API::getTopLevelMember("PG").getMember("Connection").getAMethodCall("open")
+      this =
+        API::getTopLevelMember("PG")
+            .getMember("Connection")
+            .getAMethodCall(["open", "new", "connect_start"])
+      or
+      this = API::getTopLevelMember("PG").getAnInstantiation()
     }
   }
 
