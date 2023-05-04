@@ -1,3 +1,13 @@
+## 0.6.1
+
+No user-facing changes.
+
+## 0.6.0
+
+### New Queries
+
+* Added a new experimental query, `rb/server-side-template-injection`, to detect cases where user input may be embedded into a template's code in an unsafe manner.
+
 ## 0.5.6
 
 ### Minor Analysis Improvements
