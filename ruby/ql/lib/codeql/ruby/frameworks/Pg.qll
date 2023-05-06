@@ -36,7 +36,7 @@ module Pg {
     }
   }
 
-  /** A call to `PG::Connection.open().exec`, considered as a SQL construction. */
+  /** A call that executes SQL statements against a PostgreSQL database. */
   private class PgConstruction extends SqlConstruction::Range, DataFlow::CallNode {
     private DataFlow::Node query;
 
