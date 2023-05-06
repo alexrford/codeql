@@ -46,10 +46,13 @@ module Pg {
           pgConnection.getAMethodCall(["exec", "async_exec", "exec_params", "async_exec_params"]) and
         query = this.getArgument(0)
         or
-        this = pg_connection.getAMethodCall("prepare") and
-        this.getArgument(0).toString() =
-          pg_connection.getAMethodCall("exec_prepared").getArgument(0).toString() and
-        query = this.getArgument(1)
+        exists(string queryName, DataFlow::CallNode prepareCall |
+          this = pgConnection.getAMethodCall("exec_prepared") and
+          prepareCall = pgConnection.getAMethodCall("prepare") and
+          prepareCall.getArgument(0).getConstantValue().isStringlikeValue(queryName) and
+          this.getArgument(0).getConstantValue().isStringlikeValue(queryName) and
+          query = prepareCall.getArgument(1)
+        )
       )
     }
 
