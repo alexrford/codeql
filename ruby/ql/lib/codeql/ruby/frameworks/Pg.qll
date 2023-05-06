@@ -41,9 +41,9 @@ module Pg {
     private DataFlow::Node query;
 
     PgConstruction() {
-      exists(PgConnection pg_connection |
+      exists(PgConnection pgConnection |
         this =
-          pg_connection.getAMethodCall(["exec", "async_exec", "exec_params", "async_exec_params"]) and
+          pgConnection.getAMethodCall(["exec", "async_exec", "exec_params", "async_exec_params"]) and
         query = this.getArgument(0)
         or
         this = pg_connection.getAMethodCall("prepare") and
