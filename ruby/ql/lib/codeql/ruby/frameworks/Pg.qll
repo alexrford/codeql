@@ -37,7 +37,7 @@ module Pg {
   }
 
   /** A call that executes SQL statements against a PostgreSQL database. */
-  private class PgConstruction extends SqlConstruction::Range, DataFlow::CallNode {
+  private class PgConstruction extends SqlExecution::Range, DataFlow::CallNode {
     private DataFlow::Node query;
 
     PgConstruction() {
