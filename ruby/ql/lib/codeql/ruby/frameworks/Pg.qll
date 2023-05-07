@@ -37,10 +37,10 @@ module Pg {
   }
 
   /** A call that executes SQL statements against a PostgreSQL database. */
-  private class PgConstruction extends SqlExecution::Range, DataFlow::CallNode {
+  private class PgExecution extends SqlExecution::Range, DataFlow::CallNode {
     private DataFlow::Node query;
 
-    PgConstruction() {
+    PgExecution() {
       exists(PgConnection pgConnection |
         this =
           pgConnection.getAMethodCall(["exec", "async_exec", "exec_params", "async_exec_params"]) and
