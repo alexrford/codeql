@@ -20,16 +20,16 @@ abstract class WeakSensitiveDataHashingSink extends DataFlow::Node {
 }
 
 /**
- * A sanitizer for weak sensitive data hashing vulnerabilities.
+ * A barrier for weak sensitive data hashing vulnerabilities.
  */
-abstract class WeakSensitiveDataHashingSanitizer extends DataFlow::Node { }
+abstract class WeakSensitiveDataHashingBarrier extends DataFlow::Node { }
 
 /**
- * A unit class for adding additional taint steps.
+ * A unit class for adding additional flow steps.
  */
-class WeakSensitiveDataHashingAdditionalTaintStep extends Unit {
+class WeakSensitiveDataHashingAdditionalFlowStep extends Unit {
   /**
-   * Holds if the step from `node1` to `node2` should be considered a taint
+   * Holds if the step from `node1` to `node2` should be considered a flow
    * step for paths related to weak sensitive data hashing vulnerabilities.
    */
   abstract predicate step(DataFlow::Node nodeFrom, DataFlow::Node nodeTo);
@@ -46,6 +46,21 @@ private class WeakHashingSinks extends SinkModelCsv {
         ";Insecure.SHA1;true;hash(data:);;;Argument[0];weak-hash-input-SHA1",
         ";Insecure.SHA1;true;update(data:);;;Argument[0];weak-hash-input-SHA1",
         ";Insecure.SHA1;true;update(bufferPointer:);;;Argument[0];weak-hash-input-SHA1",
+        // CryptoSwift
+        ";MD5;true;calculate(for:);;;Argument[0];weak-hash-input-MD5",
+        ";MD5;true;callAsFunction(_:);;;Argument[0];weak-hash-input-MD5",
+        ";MD5;true;update(withBytes:isLast:);;;Argument[0];weak-hash-input-MD5",
+        ";SHA1;true;calculate(for:);;;Argument[0];weak-hash-input-SHA1",
+        ";SHA1;true;callAsFunction(_:);;;Argument[0];weak-hash-input-SHA1",
+        ";SHA1;true;update(withBytes:isLast:);;;Argument[0];weak-hash-input-SHA1",
+        ";Digest;true;md5(_:);;;Argument[0];weak-hash-input-MD5",
+        ";Digest;true;sha1(_:);;;Argument[0];weak-hash-input-SHA1",
+        ";Array;true;md5();;;Argument[-1];weak-hash-input-MD5",
+        ";Array;true;sha1();;;Argument[-1];weak-hash-input-SHA1",
+        ";Data;true;md5();;;Argument[-1];weak-hash-input-MD5",
+        ";Data;true;sha1();;;Argument[-1];weak-hash-input-SHA1",
+        ";String;true;md5();;;Argument[-1];weak-hash-input-MD5",
+        ";String;true;sha1();;;Argument[-1];weak-hash-input-SHA1",
       ]
   }
 }

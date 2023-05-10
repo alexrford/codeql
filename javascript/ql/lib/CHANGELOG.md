@@ -1,3 +1,20 @@
+## 0.6.1
+
+### Major Analysis Improvements
+
+* The Yaml.qll library was moved into a shared library pack named `codeql/yaml` to make it possible for other languages to re-use it. This change should be backwards compatible for existing JavaScript queries.
+
+## 0.6.0
+
+### Major Analysis Improvements
+
+* Added support for TypeScript 5.0.
+
+### Minor Analysis Improvements
+
+* `router.push` and `router.replace` in `Next.js` are now considered as XSS sink.
+* The crypto-js module in `CryptoLibraries.qll` now supports progressive hashing with algo.update().
+
 ## 0.5.2
 
 No user-facing changes.
