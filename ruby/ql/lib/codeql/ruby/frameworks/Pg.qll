@@ -36,6 +36,25 @@ module Pg {
     }
   }
 
+  /** A call that prepares an SQL statment to be executed later. */
+  private class PgPrepareCall extends SqlConstruction::Range, DataFlow::CallNode {
+    private DataFlow::Node query;
+    private PgConnection pgConnection;
+    private string queryName;
+
+    PgPrepareCall() {
+      this = pgConnection.getAMethodCall("prepare") and
+      queryName = this.getArgument(0).getConstantValue().getStringlikeValue() and
+      query = this.getArgument(1)
+    }
+
+    PgConnection getConnection() { result = pgConnection }
+
+    string getQueryName() { result = queryName }
+
+    override DataFlow::Node getSql() { result = query }
+  }
+
   /** A call that executes SQL statements against a PostgreSQL database. */
   private class PgExecution extends SqlExecution::Range, DataFlow::CallNode {
     private DataFlow::Node query;
@@ -46,12 +65,11 @@ module Pg {
           pgConnection.getAMethodCall(["exec", "async_exec", "exec_params", "async_exec_params"]) and
         query = this.getArgument(0)
         or
-        exists(string queryName, DataFlow::CallNode prepareCall |
+        exists(PgPrepareCall prepareCall |
           this = pgConnection.getAMethodCall("exec_prepared") and
-          prepareCall = pgConnection.getAMethodCall("prepare") and
-          prepareCall.getArgument(0).getConstantValue().isStringlikeValue(queryName) and
-          this.getArgument(0).getConstantValue().isStringlikeValue(queryName) and
-          query = prepareCall.getArgument(1)
+          pgConnection = prepareCall.getConnection() and
+          this.getArgument(0).getConstantValue().isStringlikeValue(prepareCall.getQueryName()) and
+          query = prepareCall.getSql()
         )
       )
     }
