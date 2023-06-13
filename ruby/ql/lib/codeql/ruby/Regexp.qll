@@ -122,7 +122,9 @@ class StdLibRegExpInterpretation extends RegExpInterpretation::Range {
       mce.getMethodName() = ["match", "match?"] and
       this = mce.getArgument(0) and
       // exclude https://ruby-doc.org/core-2.4.0/Regexp.html#method-i-match
-      not mce.getReceiver() = RegExpTracking::trackRegexpType()
+      not mce.getReceiver() = RegExpTracking::trackRegexpType() and
+      // exclude https://rubydoc.info/github/rspec/rspec-expectations/RSpec/Matchers#match-instance_method
+      not mce.getReceiver().asExpr() instanceof CfgNodes::ExprNodes::SelfVariableAccessCfgNode
     )
   }
 }
