@@ -37,13 +37,13 @@ private class MyConsistencyConfiguration extends ConsistencyConfiguration {
   }
 
   override predicate postWithInFlowExclude(Node n) {
-    n instanceof SummaryNode
+    n instanceof FlowSummaryNode
     or
     n.asExpr().(ObjectCreation).hasInitializer()
   }
 
   override predicate argHasPostUpdateExclude(ArgumentNode n) {
-    n instanceof SummaryNode
+    n instanceof FlowSummaryNode
     or
     not exists(LocalFlow::getAPostUpdateNodeForArg(n.getControlFlowNode()))
     or
@@ -72,5 +72,5 @@ private class MyConsistencyConfiguration extends ConsistencyConfiguration {
 
   override predicate reverseReadExclude(Node n) { n.asExpr() = any(AwaitExpr ae).getExpr() }
 
-  override predicate identityLocalStepExclude(Node n) { n.getLocation().getFile().fromLibrary() }
+  override predicate identityLocalStepExclude(Node n) { none() }
 }

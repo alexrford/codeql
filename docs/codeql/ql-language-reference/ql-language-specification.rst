@@ -176,44 +176,64 @@ A QL module definition has the following syntax:
 
 ::
 
-   module ::= annotation* "module" modulename "{" moduleBody "}"
+   module ::= annotation* "module" modulename parameters? implements? "{" moduleBody "}"
 
-   moduleBody ::= (import | predicate | class | module | alias | select)*
+   parameters ::= "<" signatureExpr parameterName ("," signatureExpr parameterName)* ">"
+
+   implements ::= "implements" moduleSignatureExpr ("," moduleSignatureExpr)*
+
+   moduleBody ::= (import | predicate | class | module | signature | alias | select)*
 
 A module definition extends the current module's declared module environment with a mapping from the module name to the module definition.
 
-QL files consist of simply a module body without a name and surrounding braces:
+QL files and QLL files consist of simply a module body without a name and surrounding braces:
 
 ::
 
    ql ::= moduleBody
 
-QL files define a module corresponding to the file, whose name is the same as the filename.
+QL files and QLL files define a module corresponding to the file, whose name is the same as the filename.
 
 Kinds of modules
 ~~~~~~~~~~~~~~~~
 
 A module may be:
 
--  A *file module*, if it is defined implicitly by a QL file.
--  A *query module*, if it is defined by a QL file.
+-  A *declared module*, if it is defined by the ``module`` or ``ql`` grammar rules.
+-  A *non-declared module*, if it is not a *declared module*.
+
+A *declared module* may be:
+
+-  A *file module*, if it is defined implicitly by a QL file or a QLL file.
+-  A *query module*, if it is defined implicitly by a QL file.
 -  A *library module*, if it is not a query module.
+
+A *non-declared module* may be:
+
+-  A *built-in module*.
+-  An *instantiated module* (see :ref:`Parameterized modules`).
+-  An *instantiation-nested module*  (see :ref:`Parameterized modules`).
 
 A query module must contain one or more queries.
 
 Import directives
 ~~~~~~~~~~~~~~~~~
 
-An import directive refers to a module identifier:
+An import directive refers to a module expression:
 
 ::
 
-   import ::= annotations "import" importModuleId ("as" modulename)?
+   import ::= annotations "import" importModuleExpr ("as" modulename)?
+
+   importModuleExpr ::= importModuleId arguments?
+
+   importModuleId ::= qualId | importModuleExpr "::" modulename
 
    qualId ::= simpleId | qualId "." simpleId
 
-   importModuleId ::= qualId
-                  | importModuleId "::" simpleId
+   arguments ::= "<" argument ("," argument)* ">"
+
+   argument ::= moduleExpr | type | predicateRef "/" int
 
 An import directive may optionally name the imported module using an ``as`` declaration. If a name is defined, then the import directive adds to the declared module environment of the current module a mapping from the name to the declaration of the imported module. Otherwise, the current module *directly imports* the imported module.
 
@@ -242,6 +262,73 @@ For qualified identifiers (``a.b``):
 
 A qualified module identifier is only valid within an import.
 
+Module expressions contain a module identifier and optional arguments. If arguments are present, the module expression instantiates the module that the identifier resolves to (see :ref:`Parameterized modules`).
+
+Module expressions cannot refer to :ref:`Parameterized modules`. Instead, parameterized modules must always be fully instantiated when they are referenced.
+
+.. _Parameterized modules:
+
+Parameterized modules
+~~~~~~~~~~~~~~~~~~~~~
+
+Modules with parameters are called *parameterized modules*. A *declared module* has parameters if and only if it is a *library module* and its declaration uses the ``parameters`` syntax.
+
+*Parameterized modules* can be instantiated with arguments that match the signatures of the parameters:
+
+- Given a type signature, the corresponding argument must be a type that transitively extends the specified ``extends`` types and is a transitive subtype of the specified ``instanceof`` types.
+- Given a predicate signature, the corresponding argument must be a predicate with exactly matching relational types.
+- Given a module signature, the corresponding argument must be a module that exports all the specified type and predicate members. Furthermore, the module must be declared as matching the module signature via the ``implements`` syntax.
+
+The result of instantiating a *parameterized module* is an *instantiated module*. The parameterized module is called the *underlying module* of the *instantiated module*.
+
+Instantiation-relative and instantiation-nested entities
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Given an *instantiated module*, every entity has a corresponding entity called the *instantiation-relative* entity, which is determined as follows:
+
+- If the entity is the *underlying module*, its *instantiation-relative* entity is the *instantiated module*.
+- If the entity is a parameter of the *underlying module*, its *instantiation-relative* entity is the corresponding argument.
+- If the entity is declared inside the *underlying module* or its nested modules, its *instantiation-relative* entity is an *instantiation-nested* entity that is generated by the module instantiation. Parameters of any modules that are nested inside the *underlying module* are considered declared inside the module for this purpose.
+- Otherwise, the entity's *instantiation-relative* entity is the initial entity itself.
+
+When the *instantiation-relative* entity of an entity is an *instantiation-nested* entity, then the initial entity is called the *underlying nested* entity of the *instantiation-nested* entity*, the *instantiated module* is called the *instantiation root* of the *instantiation-nested* entity, and the *underlying module* is called the *underlying root* of the *instantiation-nested* entity.
+
+The components of an *instantiation-nested* entity are the *instantiation-relative* entities of the components of its *underlying nested* entity. Among other things, this applies to:
+
+- values in the exported environments of *instantiation-nested* modules,
+- relational types of *instantiation-nested* predicates and predicate signatures,
+- required signatures of *instantiation-nested* parameters,
+- parameters of an *instantiation-nested* *parameterized module*,
+- fields and member predicates of *instantiation-nested* dataclasses.
+
+Given an *instantiated module*, any alias in the program has a corresponding alias called the *instantiation-relative* alias, which targets the *instantiation-relative* entity.
+
+Applicative instantiation
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Every entity has an *underlying completely uninstantiated* entity that is determined as follows:
+
+- If the entity is an *instantiated module*, its *underlying completely uninstantiated* entity is the *underlying completely uninstantiated* entity of the *underlying module*.
+- If the entity is an *instantiation-nested* entity, its *underlying completely uninstantiated* entity is the *underlying completely uninstantiated* entity of the *underlying nested* entity.
+- Otherwise, its *underlying completely uninstantiated* entity is the entity itself.
+
+An entity is called *completely uninstantiated* entity if it is its own *underlying completely uninstantiated* entity.
+
+Every *completely uninstantiated* entity has a *relevant set of parameters*, which is the set of all parameters of all the modules that the entity is transitively nested inside. For entities that are not nested inside any modules, the *relevant set of parameters* is empty.
+
+Note that the *relevant set of parameters* by construction contains only *completely uninstantiated* parameters.
+
+For a *completely uninstantiated* parameter, the *bottom-up instantiation-resolution* relative to an entity is defined as:
+
+- If the entity is an *instantiated module* or an *instantiation-nested* entity, the *bottom-up instantiation-resolution* is the *instantiation-relative* entity of the *bottom-up instantiation-resolution* relative to the *underlying module*.
+- Otherwise, the *bottom-up instantiation-resolution* is the parameter itself.
+
+An entity is called *fully instantiated* if none of the *bottom-up instantiation-resolutions* of the parameters in the *relevant set of parameters* of the entity's *underlying completely uninstantiated* entity are parameters.
+
+Two *instantiated modules* or two *instantiation-nested* entities are considered *equivalent* if they have the same *underlying completely uninstantiated* entity and each parameter in its *relevant set of parameters* has the same *bottom-up instantiation-resolution* relative to either *instantiated module*.
+
+Module instantiation is applicative, meaning that *equivalent* *instantiated modules* and *equivalent* *instantiation-nested* entities are indistinguishable.
+
 Module references and active modules
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -261,7 +348,7 @@ QL is a typed language. This section specifies the kinds of types available, the
 Kinds of types
 ~~~~~~~~~~~~~~
 
-Types in QL are either *primitive* types, *database* types, *class* types, *character* types or *class domain* types.
+Types in QL are either *primitive* types, *database* types, *class* types, *character* types, *class domain* types, type *parameters*, or *instantiation-nested* types.
 
 The primitive types are ``boolean``, ``date``, ``float``, ``int``, and ``string``.
 
@@ -280,9 +367,11 @@ With the exception of class domain types and character types (which cannot be re
 
 ::
 
-   type ::= (moduleId "::")? classname | dbasetype | "boolean" | "date" | "float" | "int" | "string"
+   type ::= (moduleExpr "::")? classname | dbasetype | "boolean" | "date" | "float" | "int" | "string"
 
-   moduleId ::= simpleId | moduleId "::" simpleId
+   moduleExpr ::= moduleId arguments?
+
+   moduleId ::= modulename | moduleExpr "::" modulename
 
 A type reference is resolved to a type as follows:
 
@@ -587,20 +676,21 @@ There are several kinds of identifiers:
 
 -  ``atLowerId``: an identifier that starts with an "@" sign and then a lower-case letter.
 
--  ``atUpperId``: an identifier that starts with an "@" sign and then an upper-case letter.
-
 Identifiers are used in following syntactic constructs:
 
 ::
 
-   simpleId      ::= lowerId | upperId
-   modulename    ::= simpleId
-   classname     ::= upperId
-   dbasetype     ::= atLowerId
-   predicateRef  ::= (moduleId "::")? literalId
-   predicateName ::= lowerId
-   varname       ::= lowerId
-   literalId     ::= lowerId | atLowerId
+   simpleId            ::= lowerId | upperId
+   modulename          ::= simpleId
+   moduleSignatureName ::= upperId
+   classname           ::= upperId
+   dbasetype           ::= atLowerId
+   predicateRef        ::= (moduleExpr "::")? literalId
+   signatureExpr       ::= (moduleExpr "::")? simpleId ("/" Integer | arguments)?;
+   predicateName       ::= lowerId
+   parameterName       ::= simpleId
+   varname             ::= lowerId
+   literalId           ::= lowerId | atLowerId
 
 Integer literals (int)
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -662,12 +752,14 @@ Various kinds of syntax can have *annotations* applied to them. Annotations are 
    simpleAnnotation ::= "abstract"
                     |   "cached"
                     |   "external"
+                    |   "extensible"
                     |   "final"
                     |   "transient"
                     |   "library"
                     |   "private"
                     |   "deprecated"
                     |   "override"
+                    |   "additional"
                     |   "query"
 
    argsAnnotation ::= "pragma" "[" ("inline" | "inline_late" | "noinline" | "nomagic" | "noopt" | "assume_small_delta") "]"
@@ -683,31 +775,36 @@ Simple annotations
 
 The following table summarizes the syntactic constructs which can be marked with each annotation in a valid program; for example, an ``abstract`` annotation preceding a character is invalid.
 
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
-| Annotation     | Classes | Characters | Member predicates | Non-member predicates | Imports | Fields | Modules | Aliases |
-+================+=========+============+===================+=======================+=========+========+=========+=========+
-| ``abstract``   | yes     |            | yes               |                       |         |        |         |         |
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
-| ``cached``     | yes     | yes        | yes               | yes                   |         |        | yes     |         |
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
-| ``external``   |         |            |                   | yes                   |         |        |         |         |
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
-| ``final``      | yes     |            | yes               |                       |         | yes    |         | yes     |
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
-| ``transient``  |         |            |                   | yes                   |         |        |         |         |
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
-| ``library``    | yes     |            |                   |                       |         |        |         |         |
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
-| ``private``    | yes     |            | yes               | yes                   | yes     | yes    | yes     | yes     |
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
-| ``deprecated`` | yes     |            | yes               | yes                   |         | yes    | yes     | yes     |
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
-| ``override``   |         |            | yes               |                       |         | yes    |         |         |
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
-| ``query``      |         |            |                   | yes                   |         |        |         | yes     |
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| Annotation     | Classes | Characters | Member predicates | Non-member predicates | Imports | Fields | Modules | Aliases | Signatures |
++================+=========+============+===================+=======================+=========+========+=========+=========+============+
+| ``abstract``   | yes     |            | yes               |                       |         |        |         |         |            |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| ``cached``     | yes     | yes        | yes               | yes                   |         |        | yes     |         |            |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| ``external``   |         |            |                   | yes                   |         |        |         |         |            |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| ``extensible`` |         |            |                   | yes                   |         |        |         |         |            |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| ``final``      | yes     |            | yes               |                       |         | yes    |         | (yes)   |            |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| ``transient``  |         |            |                   | yes                   |         |        |         |         |            |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| ``library``    | (yes)   |            |                   |                       |         |        |         |         |            |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| ``private``    | yes     |            | yes               | yes                   | yes     | yes    | yes     | yes     | yes        |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| ``deprecated`` | yes     |            | yes               | yes                   |         | yes    | yes     | yes     | yes        |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| ``override``   |         |            | yes               |                       |         | yes    |         |         |            |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| ``additional`` | yes     |            |                   | yes                   |         |        | yes     | yes     | yes        |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| ``query``      |         |            |                   | yes                   |         |        |         | yes     |            |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
 
 The ``library`` annotation is only usable within a QLL file, not a QL file.
+The ``final`` annotation is usable on type aliases, but not on module aliases and predicate aliases.
 
 Annotations on aliases apply to the name introduced by the alias. An alias may, for example, have different privacy to the name it aliases.
 
@@ -723,7 +820,7 @@ The parameterized annotation ``pragma`` supplies compiler pragmas, and may be ap
 +===========================+=========+============+===================+=======================+=========+========+=========+=========+
 | ``inline``                |         | yes        | yes               | yes                   |         |        |         |         |
 +---------------------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
-| ``inline_late``           |         |            |                   | yes                   |         |        |         |         |
+| ``inline_late``           |         | yes        | yes               | yes                   |         |        |         |         |
 +---------------------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
 | ``noinline``              |         | yes        | yes               | yes                   |         |        |         |         |
 +---------------------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
@@ -757,11 +854,13 @@ Binding sets are checked by the QL compiler in the following way:
 
 A predicate may have several different binding sets, which can be stated by using multiple ``bindingset`` annotations on the same predicate.
 
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
-| Pragma         | Classes | Characters | Member predicates | Non-member predicates | Imports | Fields | Modules | Aliases |
-+================+=========+============+===================+=======================+=========+========+=========+=========+
-| ``bindingset`` |         | yes        | yes               | yes                   |         |        |         |         |
-+----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+| Annotation     | Classes | Characters | Member predicates | Non-member predicates | Imports | Fields | Modules | Aliases | Signatures |
++================+=========+============+===================+=======================+=========+========+=========+=========+============+
+| ``bindingset`` |         | yes        | yes               | yes                   |         |        |         |         | (yes)      |
++----------------+---------+------------+-------------------+-----------------------+---------+--------+---------+---------+------------+
+
+The ``bindingset`` pragma is usable with type signatures and predicate signatures, but not with module signatures.
 
 QLDoc
 -----
@@ -808,7 +907,7 @@ If the query file starts with whitespace followed by a QLDoc comment, then the t
 Top-level entities
 ------------------
 
-Modules include five kinds of top-level entity: predicates, classes, modules, aliases, and select clauses.
+Modules include five kinds of top-level entity: predicates, classes, modules, aliases, signatures, and select clauses.
 
 Non-member predicates
 ~~~~~~~~~~~~~~~~~~~~~
@@ -961,6 +1060,37 @@ A valid class may not inherit from two different classes that include a field wi
 A valid field must override another field if it is annotated ``override``.
 
 When field ``f`` overrides field ``g`` the type of ``f`` must be a subtype of the type of ``g``. ``f`` may not be a final field.
+
+
+Signatures
+~~~~~~~~~~
+
+A signature definition has the following syntax:
+
+::
+
+   signature ::= predicateSignature | typeSignature | moduleSignature
+
+   predicateSignature ::= qldoc? annotations "signature" head ";"
+
+   typeSignature ::= qldoc? annotations "signature" "class" classname ("extends" type ("," type)*)? (";" | "{" signaturePredicate* "}")
+
+   moduleSignature ::= qldoc? annotation* "signature" "module" moduleSignatureName parameters? "{" moduleSignatureBody "}"
+
+   moduleSignatureBody ::= (signaturePredicate | defaultPredicate | signatureType)*
+
+   signaturePredicate ::= qldoc? annotations head ";"
+
+   defaultPredicate ::= qldoc? annotations "default" head "{" formula "}"
+
+   signatureType ::= qldoc? annotations "class" classname ("extends" type ("," type)*)? "{" signaturePredicate* "}"
+
+
+A predicate signature definition extends the current module's declared predicate signature environment with a mapping from the predicate signature name and arity to the predicate signature definition.
+
+A type signature definition extends the current module's declared type signature environment with a mapping from the type signature name to the type signature definition.
+
+A module signature definition extends the current module's declared module signature environment with a mapping from the module signature name to the module signature definition.
 
 Select clauses
 ~~~~~~~~~~~~~~
@@ -1615,7 +1745,7 @@ Aliases define new names for existing QL entities.
 
    alias ::= qldoc? annotations "predicate" literalId "=" predicateRef "/" int ";"
          |   qldoc? annotations "class" classname "=" type ";"
-         |   qldoc? annotations "module" modulename "=" moduleId ";"
+         |   qldoc? annotations "module" modulename "=" moduleExpr ";"
 
 
 An alias introduces a binding from the new name to the entity referred to by the right-hand side in the current module's declared predicate, type, or module environment respectively.
@@ -1912,9 +2042,11 @@ Stratification
 
 A QL program can be *stratified* to a sequence of *layers*. A layer is a set of predicates and types.
 
-A valid stratification must include each predicate and type in the QL program. It must not include any other predicates or types.
+A valid stratification must include each predicate and type in the QL program that is *fully instantiated*. It must not include any other predicates or types.
 
 A valid stratification must not include the same predicate in multiple layers.
+
+Each non-abstract predicate has an associated body. For predicates inside *declared modules*, this is the predicate declaration. The body of an *instantiation-nested* predicate is the body of the *underlying nested* predicate where all references and calls have been substituted with the *instantiation-relative* entity or alias.
 
 Formulas, variable declarations and expressions within a predicate body have a *negation polarity* that is positive, negative, or zero. Positive and negative are opposites of each other, while zero is the opposite of itself. The negation polarity of a formula or expression is then determined as follows:
 
@@ -2064,16 +2196,39 @@ The complete grammar for QL is as follows:
 
    ql ::= qldoc? moduleBody
 
-   module ::= annotation* "module" modulename "{" moduleBody "}"
+   module ::= annotation* "module" modulename parameters? implements? "{" moduleBody "}"
+
+   parameters ::= "<" signatureExpr parameterName ("," signatureExpr parameterName)* ">"
+
+   implements ::= "implements" moduleSignatureExpr ("," moduleSignatureExpr)*
 
    moduleBody ::= (import | predicate | class | module | alias | select)*
 
-   import ::= annotations "import" importModuleId ("as" modulename)?
+   import ::= annotations "import" importModuleExpr ("as" modulename)?
 
    qualId ::= simpleId | qualId "." simpleId
 
-   importModuleId ::= qualId
-                  | importModuleId "::" simpleId
+   importModuleExpr ::= qualId | importModuleExpr "::" modulename arguments?
+
+   arguments ::= "<" argument ("," argument)* ">"
+
+   argument ::= moduleExpr | type | predicateRef "/" int
+
+   signature ::= predicateSignature | typeSignature | moduleSignature
+
+   predicateSignature ::= qldoc? annotations "signature" head ";"
+
+   typeSignature ::= qldoc? annotations "signature" "class" classname ("extends" type ("," type)*)? (";" | "{" signaturePredicate* "}")
+
+   moduleSignature ::= qldoc? annotation* "signature" "module" moduleSignatureName parameters? "{" moduleSignatureBody "}"
+
+   moduleSignatureBody ::= (signaturePredicate | defaultPredicate | signatureType)*
+
+   signaturePredicate ::= qldoc? annotations head ";"
+
+   defaultPredicate ::= qldoc? annotations "default" head "{" formula "}"
+
+   signatureType ::= qldoc? annotations "class" classname ("extends" type ("," type)*)? "{" signaturePredicate* "}"
 
    select ::= ("from" var_decls)? ("where" formula)? "select" as_exprs ("order" "by" orderbys)?
 
@@ -2094,12 +2249,14 @@ The complete grammar for QL is as follows:
    simpleAnnotation ::= "abstract"
                     |   "cached"
                     |   "external"
+                    |   "extensible"
                     |   "final"
                     |   "transient"
                     |   "library"
                     |   "private"
                     |   "deprecated"
                     |   "override"
+                    |   "additional"
                     |   "query"
 
    argsAnnotation ::= "pragma" "[" ("inline" | "inline_late" | "noinline" | "nomagic" | "noopt" | "assume_small_delta") "]"
@@ -2120,15 +2277,19 @@ The complete grammar for QL is as follows:
 
    field ::= qldoc? annotations var_decl ";"
 
-   moduleId ::= simpleId | moduleId "::" simpleId
+   moduleExpr ::= modulename arguments? | moduleExpr "::" modulename arguments?
 
-   type ::= (moduleId "::")? classname | dbasetype | "boolean" | "date" | "float" | "int" | "string"
+   moduleSignatureExpr ::= (moduleExpr "::")? moduleSignatureName arguments?
+
+   signatureExpr : (moduleExpr "::")? simpleId ("/" Integer | arguments)?;
+
+   type ::= (moduleExpr "::")? classname | dbasetype | "boolean" | "date" | "float" | "int" | "string"
 
    exprs ::= expr ("," expr)*
 
    alias ::= qldoc? annotations "predicate" literalId "=" predicateRef "/" int ";"
          |  qldoc? annotations "class" classname "=" type ";"
-         |  qldoc? annotations "module" modulename "=" moduleId ";"
+         |  qldoc? annotations "module" modulename "=" moduleExpr ";"
 
    var_decls ::= (var_decl ("," var_decl)*)?
 
@@ -2245,13 +2406,17 @@ The complete grammar for QL is as follows:
 
    modulename ::= simpleId
 
+   moduleSignatureName ::= upperId
+
    classname ::= upperId
 
    dbasetype ::= atLowerId
 
-   predicateRef ::= (moduleId "::")? literalId
+   predicateRef ::= (moduleExpr "::")? literalId
 
    predicateName ::= lowerId
+
+   parameterName ::= simpleId
 
    varname ::= lowerId
 
