@@ -1,0 +1,32 @@
+"extensions":
+- "addsTo":
+    "extensible": "typeModel"
+    "pack": "codeql/ruby-all"
+  "data":
+  - - "BCrypt::Password"
+    - "BCrypt::Password!"
+    - "Method[create].ReturnValue"
+- "addsTo":
+    "extensible": "summaryModel"
+    "pack": "codeql/ruby-all"
+  "data":
+  - - "BCrypt::Engine!"
+    - "Method[cost=]"
+    - "Argument[0]"
+    - "ReturnValue"
+    - "value"
+  - - "BCrypt::Engine!"
+    - "Method[valid_salt?]"
+    - "Argument[0]"
+    - "ReturnValue"
+    - "taint"
+  - - "BCrypt::Password!"
+    - "Method[new]"
+    - "Argument[0]"
+    - "ReturnValue"
+    - "taint"
+  - - "BCrypt::Password!"
+    - "Method[valid_hash?]"
+    - "Argument[0]"
+    - "ReturnValue"
+    - "taint"
