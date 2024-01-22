@@ -10,6 +10,8 @@ private import codeql.ruby.dataflow.internal.DataFlowDispatch
 private import codeql.ruby.ApiGraphs
 private import codeql.ruby.frameworks.Stdlib
 private import codeql.ruby.frameworks.Core
+private import codeql.ruby.CFG
+private import codeql.ruby.frameworks.ActionController
 
 /// See https://api.rubyonrails.org/classes/ActiveRecord/Persistence.html
 private string activeRecordPersistenceInstanceMethodName() {
@@ -282,21 +284,11 @@ class ActiveRecordSqlExecutionRange extends SqlExecution::Range {
 /**
  * A node that may evaluate to one or more `ActiveRecordModelClass` instances.
  */
-abstract class ActiveRecordModelInstantiation extends OrmInstantiation::Range,
-  DataFlow::LocalSourceNode
-{
+abstract class ActiveRecordModelInstantiation extends DataFlow::LocalSourceNode {
   /**
    * Gets the `ActiveRecordModelClass` that this instance belongs to.
    */
   abstract ActiveRecordModelClass getClass();
-
-  bindingset[methodName]
-  override predicate methodCallMayAccessField(string methodName) {
-    // The method is not a built-in, and...
-    not isBuiltInMethodForActiveRecordModelInstance(methodName) and
-    // ...There is no matching method definition in the class
-    not exists(this.getClass().getMethod(methodName))
-  }
 }
 
 // Names of class methods on ActiveRecord models that may return one or more
@@ -307,7 +299,8 @@ private string staticFinderMethodName() {
     baseName =
       [
         "fifth", "find", "find_by", "find_or_initialize_by", "find_or_create_by", "first",
-        "forty_two", "fourth", "last", "second", "second_to_last", "take", "third", "third_to_last"
+        "forty_two", "fourth", "last", "second", "second_to_last", "take", "third", "third_to_last",
+        "where"
       ] and
     result = baseName + ["", "!"]
   )
@@ -371,16 +364,79 @@ private class ActiveRecordModelClassSelfReference extends ActiveRecordModelInsta
   final override ActiveRecordModelClass getClass() { result = cls }
 }
 
+private predicate isFlowFromControllerInstanceVariable(DataFlow::Node node1, DataFlow::Node node2) {
+  // instance variables in the controller
+  exists(string name, ErbFile template |
+    // match read to write on variable name
+    actionAssigns(_, name, node1.asExpr().getExpr(), template) and
+    // propagate taint from assignment RHS expr to variable read access in view
+    isVariableReadAccess(node2.asExpr().getExpr(), name, template)
+  )
+}
+
+/**
+ * A `VariableWriteAccessCfgNode` that is not succeeded (locally) by another
+ * write to that variable.
+ */
+private class FinalInstanceVarWrite extends CfgNodes::ExprNodes::InstanceVariableWriteAccessCfgNode {
+  private InstanceVariable var;
+
+  FinalInstanceVarWrite() {
+    var = this.getExpr().getVariable() and
+    not exists(CfgNodes::ExprNodes::InstanceVariableWriteAccessCfgNode succWrite |
+      succWrite.getExpr().getVariable() = var
+    |
+      succWrite = this.getASuccessor+()
+    )
+  }
+
+  InstanceVariable getVariable() { result = var }
+
+  AssignExpr getAnAssignExpr() { result.getLeftOperand() = this.getExpr() }
+}
+
+pragma[noinline]
+private predicate actionAssigns(
+  ActionControllerActionMethod action, string name, Expr value, ErbFile erb
+) {
+  exists(AssignExpr ae, FinalInstanceVarWrite controllerVarWrite |
+    action.getDefaultTemplateFile() = erb and
+    ae.getParent+() = action and
+    ae = controllerVarWrite.getAnAssignExpr() and
+    name = controllerVarWrite.getVariable().getName() and
+    value = ae.getRightOperand()
+  )
+}
+
+pragma[noinline]
+private predicate isVariableReadAccess(VariableReadAccess viewVarRead, string name, ErbFile erb) {
+  erb = viewVarRead.getLocation().getFile() and
+  viewVarRead.getVariable().getName() = name
+}
+
 /**
  * An instance of an `ActiveRecord` model object.
  */
-class ActiveRecordInstance extends DataFlow::Node {
+class ActiveRecordInstance extends DataFlow::LocalSourceNode, OrmInstantiation::Range {
   private ActiveRecordModelInstantiation instantiation;
 
-  ActiveRecordInstance() { this = instantiation.track().getAValueReachableFromSource() }
+  ActiveRecordInstance() {
+    this = instantiation.track().getAValueReachableFromSource() or
+    isFlowFromControllerInstanceVariable(any(ActiveRecordInstance ari), this)
+  }
 
   /** Gets the `ActiveRecordModelClass` that this is an instance of. */
   ActiveRecordModelClass getClass() { result = instantiation.getClass() }
+
+  bindingset[methodName]
+  override predicate methodCallMayAccessField(string methodName) {
+    (
+      // The method is not a built-in, and...
+      not isBuiltInMethodForActiveRecordModelInstance(methodName) and
+      // ...There is no matching method definition in the class
+      not exists(this.getClass().getMethod(methodName))
+    )
+  }
 }
 
 /** A call whose receiver may be an active record model object */

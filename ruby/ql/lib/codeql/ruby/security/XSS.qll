@@ -4,6 +4,7 @@
 
 private import codeql.ruby.AST
 private import codeql.ruby.DataFlow
+private import codeql.ruby.TaintTracking
 private import codeql.ruby.CFG
 private import codeql.ruby.Concepts
 private import codeql.ruby.Frameworks
@@ -289,7 +290,7 @@ private module OrmTracking {
     predicate isBarrierIn(DataFlow::Node node) { node instanceof DataFlow::SelfParameterNode }
   }
 
-  import DataFlow::Global<Config>
+  import TaintTracking::Global<Config>
 }
 
 /** Provides default sources, sinks and sanitizers for detecting stored cross-site scripting (XSS) vulnerabilities. */
