@@ -87,10 +87,14 @@ pub fn run(options: Options) -> std::io::Result<()> {
 
     let ruby = tree_sitter_ruby::language();
     let erb = tree_sitter_embedded_template::language();
+    let html = tree_sitter_html::language();
     // Look up tree-sitter kind ids now, to avoid string comparisons when scanning ERB files.
     let erb_directive_id = erb.id_for_node_kind("directive", true);
     let erb_output_directive_id = erb.id_for_node_kind("output_directive", true);
     let erb_code_id = erb.id_for_node_kind("code", true);
+
+    let erb_content_id = erb.id_for_node_kind("content", true);
+
     let schema = node_types::read_node_types_str("ruby", tree_sitter_ruby::NODE_TYPES)?;
     let erb_schema =
         node_types::read_node_types_str("erb", tree_sitter_embedded_template::NODE_TYPES)?;
@@ -105,6 +109,7 @@ pub fn run(options: Options) -> std::io::Result<()> {
             let mut source = std::fs::read(&path)?;
             let mut needs_conversion = false;
             let code_ranges;
+            let mut content_ranges = vec![];
             let mut trap_writer = trap::Writer::new();
             if path.extension().map_or(false, |x| x == "erb") {
                 tracing::info!("scanning: {}", path.display());
@@ -119,19 +124,30 @@ pub fn run(options: Options) -> std::io::Result<()> {
                     &[],
                 );
 
-                let (ranges, line_breaks) = scan_erb(
+                let (ruby_ranges, ruby_line_breaks) = scan_erb_code(
                     erb,
                     &source,
                     erb_directive_id,
                     erb_output_directive_id,
                     erb_code_id,
                 );
-                for i in line_breaks {
+
+                if path.file_name().map_or(false, |ext| ext == ".html.erb") {
+                    let (html_ranges, html_line_breaks) = scan_erb_content(
+                        erb,
+                        &source,
+                        erb_content_id,
+                    );
+                    content_ranges = html_ranges;
+                }
+
+                // TODO: what to do with these line_breaks?
+                for i in ruby_line_breaks {
                     if i < source.len() {
                         source[i] = b'\n';
                     }
                 }
-                code_ranges = ranges;
+                code_ranges = ruby_ranges;
             } else {
                 if let Some(encoding_name) = scan_coding_comment(&source) {
                     // If the input is already UTF-8 then there is no need to recode the source
@@ -205,6 +221,19 @@ pub fn run(options: Options) -> std::io::Result<()> {
                 &source,
                 &code_ranges,
             );
+            if content_ranges.len() != 0 {
+                extractor::extract(
+                    html,
+                    "HTML",
+                    &schema,
+                    &mut diagnostics_writer,
+                    &mut trap_writer,
+                    &path,
+                    &source,
+                    &content_ranges,
+                );
+            }
+
             std::fs::create_dir_all(src_archive_file.parent().unwrap())?;
             if needs_conversion {
                 std::fs::write(&src_archive_file, &source)?;
@@ -248,7 +277,7 @@ fn write_trap(
     trap_writer.write_to_file(&trap_file, trap_compression)
 }
 
-fn scan_erb(
+fn scan_erb_code(
     erb: Language,
     source: &[u8],
     directive_id: u16,
@@ -258,7 +287,7 @@ fn scan_erb(
     let mut parser = Parser::new();
     parser.set_language(erb).unwrap();
     let tree = parser.parse(source, None).expect("Failed to parse file");
-    let mut result = Vec::new();
+    let mut ranges = Vec::new();
     let mut line_breaks = vec![];
 
     for n in tree.root_node().children(&mut tree.walk()) {
@@ -272,24 +301,62 @@ fn scan_erb(
                         range.end_byte += 1;
                         range.end_point.column += 1;
                     }
-                    result.push(range);
+                    ranges.push(range);
                 }
             }
         }
     }
 
-    if result.is_empty() {
+    if ranges.is_empty() {
         let root = tree.root_node();
 
         // Add an empty range at the end of the file
-        result.push(Range {
+        ranges.push(Range {
             start_byte: root.end_byte(),
             end_byte: root.end_byte(),
             start_point: root.end_position(),
             end_point: root.end_position(),
         });
     }
-    (result, line_breaks)
+    (ranges, line_breaks)
+}
+
+// TODO: deduplicate
+fn scan_erb_content(
+    erb: Language,
+    source: &[u8],
+    content_id: u16,
+) -> (Vec<Range>, Vec<usize>) {
+    let mut parser = Parser::new();
+    parser.set_language(erb).unwrap();
+    let tree = parser.parse(source, None).expect("Failed to parse file");
+    let mut ranges = Vec::new();
+    let mut line_breaks = vec![];
+
+    for n in tree.root_node().children(&mut tree.walk()) {
+        if n.kind_id() == content_id {
+            let mut range = n.range();
+            if range.end_byte < source.len() {
+                line_breaks.push(range.end_byte);
+                range.end_byte += 1;
+                range.end_point.column += 1;
+            }
+            ranges.push(range);
+        }
+    }
+
+    if ranges.is_empty() {
+        let root = tree.root_node();
+
+        // Add an empty range at the end of the file
+        ranges.push(Range {
+            start_byte: root.end_byte(),
+            end_byte: root.end_byte(),
+            start_point: root.end_position(),
+            end_point: root.end_position(),
+        });
+    }
+    (ranges, line_breaks)
 }
 
 /// Advance `index` to the next non-whitespace character.

@@ -31,6 +31,10 @@ pub fn run(options: Options) -> std::io::Result<()> {
             name: "Erb".to_owned(),
             node_types: tree_sitter_embedded_template::NODE_TYPES,
         },
+        Language {
+            name: "Html".to_owned(),
+            node_types: tree_sitter_html::NODE_TYPES,
+        },
     ];
 
     generate(languages, options.dbscheme, options.library)
