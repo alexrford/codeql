@@ -2043,3 +2043,221 @@ module Erb {
     final override AstNode getAFieldOrChild() { erb_template_child(this, _, result) }
   }
 }
+
+module Html {
+  /** The base class for all AST nodes */
+  class AstNode extends @html_ast_node {
+    /** Gets a string representation of this element. */
+    string toString() { result = this.getAPrimaryQlClass() }
+
+    /** Gets the location of this element. */
+    final L::Location getLocation() { html_ast_node_location(this, result) }
+
+    /** Gets the parent of this element. */
+    final AstNode getParent() { html_ast_node_parent(this, result, _) }
+
+    /** Gets the index of this node among the children of its parent. */
+    final int getParentIndex() { html_ast_node_parent(this, _, result) }
+
+    /** Gets a field or child node of this node. */
+    AstNode getAFieldOrChild() { none() }
+
+    /** Gets the name of the primary QL class for this element. */
+    string getAPrimaryQlClass() { result = "???" }
+
+    /** Gets a comma-separated list of the names of the primary CodeQL classes to which this element belongs. */
+    string getPrimaryQlClasses() { result = concat(this.getAPrimaryQlClass(), ",") }
+  }
+
+  /** A token. */
+  class Token extends @html_token, AstNode {
+    /** Gets the value of this token. */
+    final string getValue() { html_tokeninfo(this, _, result) }
+
+    /** Gets a string representation of this element. */
+    final override string toString() { result = this.getValue() }
+
+    /** Gets the name of the primary QL class for this element. */
+    override string getAPrimaryQlClass() { result = "Token" }
+  }
+
+  /** A reserved word. */
+  class ReservedWord extends @html_reserved_word, Token {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "ReservedWord" }
+  }
+
+  /** A class representing `attribute` nodes. */
+  class Attribute extends @html_attribute, AstNode {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "Attribute" }
+
+    /** Gets the `i`th child of this node. */
+    final AstNode getChild(int i) { html_attribute_child(this, i, result) }
+
+    /** Gets a field or child node of this node. */
+    final override AstNode getAFieldOrChild() { html_attribute_child(this, _, result) }
+  }
+
+  /** A class representing `attribute_name` tokens. */
+  class AttributeName extends @html_token_attribute_name, Token {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "AttributeName" }
+  }
+
+  /** A class representing `attribute_value` tokens. */
+  class AttributeValue extends @html_token_attribute_value, Token {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "AttributeValue" }
+  }
+
+  /** A class representing `comment` tokens. */
+  class Comment extends @html_token_comment, Token {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "Comment" }
+  }
+
+  /** A class representing `doctype` tokens. */
+  class Doctype extends @html_token_doctype, Token {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "Doctype" }
+  }
+
+  /** A class representing `element` nodes. */
+  class Element extends @html_element, AstNode {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "Element" }
+
+    /** Gets the `i`th child of this node. */
+    final AstNode getChild(int i) { html_element_child(this, i, result) }
+
+    /** Gets a field or child node of this node. */
+    final override AstNode getAFieldOrChild() { html_element_child(this, _, result) }
+  }
+
+  /** A class representing `end_tag` nodes. */
+  class EndTag extends @html_end_tag, AstNode {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "EndTag" }
+
+    /** Gets the child of this node. */
+    final TagName getChild() { html_end_tag_def(this, result) }
+
+    /** Gets a field or child node of this node. */
+    final override AstNode getAFieldOrChild() { html_end_tag_def(this, result) }
+  }
+
+  /** A class representing `entity` tokens. */
+  class Entity extends @html_token_entity, Token {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "Entity" }
+  }
+
+  /** A class representing `erroneous_end_tag` nodes. */
+  class ErroneousEndTag extends @html_erroneous_end_tag, AstNode {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "ErroneousEndTag" }
+
+    /** Gets the child of this node. */
+    final ErroneousEndTagName getChild() { html_erroneous_end_tag_def(this, result) }
+
+    /** Gets a field or child node of this node. */
+    final override AstNode getAFieldOrChild() { html_erroneous_end_tag_def(this, result) }
+  }
+
+  /** A class representing `erroneous_end_tag_name` tokens. */
+  class ErroneousEndTagName extends @html_token_erroneous_end_tag_name, Token {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "ErroneousEndTagName" }
+  }
+
+  /** A class representing `fragment` nodes. */
+  class Fragment extends @html_fragment, AstNode {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "Fragment" }
+
+    /** Gets the `i`th child of this node. */
+    final AstNode getChild(int i) { html_fragment_child(this, i, result) }
+
+    /** Gets a field or child node of this node. */
+    final override AstNode getAFieldOrChild() { html_fragment_child(this, _, result) }
+  }
+
+  /** A class representing `quoted_attribute_value` nodes. */
+  class QuotedAttributeValue extends @html_quoted_attribute_value, AstNode {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "QuotedAttributeValue" }
+
+    /** Gets the child of this node. */
+    final AttributeValue getChild() { html_quoted_attribute_value_child(this, result) }
+
+    /** Gets a field or child node of this node. */
+    final override AstNode getAFieldOrChild() { html_quoted_attribute_value_child(this, result) }
+  }
+
+  /** A class representing `raw_text` tokens. */
+  class RawText extends @html_token_raw_text, Token {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "RawText" }
+  }
+
+  /** A class representing `script_element` nodes. */
+  class ScriptElement extends @html_script_element, AstNode {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "ScriptElement" }
+
+    /** Gets the `i`th child of this node. */
+    final AstNode getChild(int i) { html_script_element_child(this, i, result) }
+
+    /** Gets a field or child node of this node. */
+    final override AstNode getAFieldOrChild() { html_script_element_child(this, _, result) }
+  }
+
+  /** A class representing `self_closing_tag` nodes. */
+  class SelfClosingTag extends @html_self_closing_tag, AstNode {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "SelfClosingTag" }
+
+    /** Gets the `i`th child of this node. */
+    final AstNode getChild(int i) { html_self_closing_tag_child(this, i, result) }
+
+    /** Gets a field or child node of this node. */
+    final override AstNode getAFieldOrChild() { html_self_closing_tag_child(this, _, result) }
+  }
+
+  /** A class representing `start_tag` nodes. */
+  class StartTag extends @html_start_tag, AstNode {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "StartTag" }
+
+    /** Gets the `i`th child of this node. */
+    final AstNode getChild(int i) { html_start_tag_child(this, i, result) }
+
+    /** Gets a field or child node of this node. */
+    final override AstNode getAFieldOrChild() { html_start_tag_child(this, _, result) }
+  }
+
+  /** A class representing `style_element` nodes. */
+  class StyleElement extends @html_style_element, AstNode {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "StyleElement" }
+
+    /** Gets the `i`th child of this node. */
+    final AstNode getChild(int i) { html_style_element_child(this, i, result) }
+
+    /** Gets a field or child node of this node. */
+    final override AstNode getAFieldOrChild() { html_style_element_child(this, _, result) }
+  }
+
+  /** A class representing `tag_name` tokens. */
+  class TagName extends @html_token_tag_name, Token {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "TagName" }
+  }
+
+  /** A class representing `text` tokens. */
+  class Text extends @html_token_text, Token {
+    /** Gets the name of the primary QL class for this element. */
+    final override string getAPrimaryQlClass() { result = "Text" }
+  }
+}

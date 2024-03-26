@@ -1511,3 +1511,148 @@ erb_ast_node_parent(
   int parent_index: int ref
 );
 
+/*- Html dbscheme -*/
+@html_attribute_child_type = @html_quoted_attribute_value | @html_token_attribute_name | @html_token_attribute_value
+
+#keyset[html_attribute, index]
+html_attribute_child(
+  int html_attribute: @html_attribute ref,
+  int index: int ref,
+  unique int child: @html_attribute_child_type ref
+);
+
+html_attribute_def(
+  unique int id: @html_attribute
+);
+
+@html_element_child_type = @html_element | @html_end_tag | @html_erroneous_end_tag | @html_script_element | @html_self_closing_tag | @html_start_tag | @html_style_element | @html_token_doctype | @html_token_entity | @html_token_text
+
+#keyset[html_element, index]
+html_element_child(
+  int html_element: @html_element ref,
+  int index: int ref,
+  unique int child: @html_element_child_type ref
+);
+
+html_element_def(
+  unique int id: @html_element
+);
+
+html_end_tag_def(
+  unique int id: @html_end_tag,
+  int child: @html_token_tag_name ref
+);
+
+html_erroneous_end_tag_def(
+  unique int id: @html_erroneous_end_tag,
+  int child: @html_token_erroneous_end_tag_name ref
+);
+
+@html_fragment_child_type = @html_element | @html_erroneous_end_tag | @html_script_element | @html_style_element | @html_token_doctype | @html_token_entity | @html_token_text
+
+#keyset[html_fragment, index]
+html_fragment_child(
+  int html_fragment: @html_fragment ref,
+  int index: int ref,
+  unique int child: @html_fragment_child_type ref
+);
+
+html_fragment_def(
+  unique int id: @html_fragment
+);
+
+html_quoted_attribute_value_child(
+  unique int html_quoted_attribute_value: @html_quoted_attribute_value ref,
+  unique int child: @html_token_attribute_value ref
+);
+
+html_quoted_attribute_value_def(
+  unique int id: @html_quoted_attribute_value
+);
+
+@html_script_element_child_type = @html_end_tag | @html_start_tag | @html_token_raw_text
+
+#keyset[html_script_element, index]
+html_script_element_child(
+  int html_script_element: @html_script_element ref,
+  int index: int ref,
+  unique int child: @html_script_element_child_type ref
+);
+
+html_script_element_def(
+  unique int id: @html_script_element
+);
+
+@html_self_closing_tag_child_type = @html_attribute | @html_token_tag_name
+
+#keyset[html_self_closing_tag, index]
+html_self_closing_tag_child(
+  int html_self_closing_tag: @html_self_closing_tag ref,
+  int index: int ref,
+  unique int child: @html_self_closing_tag_child_type ref
+);
+
+html_self_closing_tag_def(
+  unique int id: @html_self_closing_tag
+);
+
+@html_start_tag_child_type = @html_attribute | @html_token_tag_name
+
+#keyset[html_start_tag, index]
+html_start_tag_child(
+  int html_start_tag: @html_start_tag ref,
+  int index: int ref,
+  unique int child: @html_start_tag_child_type ref
+);
+
+html_start_tag_def(
+  unique int id: @html_start_tag
+);
+
+@html_style_element_child_type = @html_end_tag | @html_start_tag | @html_token_raw_text
+
+#keyset[html_style_element, index]
+html_style_element_child(
+  int html_style_element: @html_style_element ref,
+  int index: int ref,
+  unique int child: @html_style_element_child_type ref
+);
+
+html_style_element_def(
+  unique int id: @html_style_element
+);
+
+html_tokeninfo(
+  unique int id: @html_token,
+  int kind: int ref,
+  string value: string ref
+);
+
+case @html_token.kind of
+  0 = @html_reserved_word
+| 1 = @html_token_attribute_name
+| 2 = @html_token_attribute_value
+| 3 = @html_token_comment
+| 4 = @html_token_doctype
+| 5 = @html_token_entity
+| 6 = @html_token_erroneous_end_tag_name
+| 7 = @html_token_raw_text
+| 8 = @html_token_tag_name
+| 9 = @html_token_text
+;
+
+
+@html_ast_node = @html_attribute | @html_element | @html_end_tag | @html_erroneous_end_tag | @html_fragment | @html_quoted_attribute_value | @html_script_element | @html_self_closing_tag | @html_start_tag | @html_style_element | @html_token
+
+html_ast_node_location(
+  unique int node: @html_ast_node ref,
+  int loc: @location_default ref
+);
+
+#keyset[parent, parent_index]
+html_ast_node_parent(
+  unique int node: @html_ast_node ref,
+  int parent: @html_ast_node ref,
+  int parent_index: int ref
+);
+
