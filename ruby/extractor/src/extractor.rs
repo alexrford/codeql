@@ -133,7 +133,7 @@ pub fn run(options: Options) -> std::io::Result<()> {
                 );
 
                 if path.file_name().map_or(false, |ext| ext == ".html.erb") {
-                    let (html_ranges, html_line_breaks) = scan_erb_content(
+                    let (html_ranges, _) = scan_erb_content(
                         erb,
                         &source,
                         erb_content_id,
@@ -141,7 +141,16 @@ pub fn run(options: Options) -> std::io::Result<()> {
                     content_ranges = html_ranges;
                 }
 
-                // TODO: what to do with these line_breaks?
+                // Insert a newline at the end of each code directive
+                // This ensures that code such as `<% if cond %> <% foo %> <% end %>`
+                // is parsed as if it were written as:
+                // ```
+                // if cond
+                // foo
+                // end
+                // ```
+                // rather than as `if cond foo end` which is not a valid one-line
+                // if-then statement.
                 for i in ruby_line_breaks {
                     if i < source.len() {
                         source[i] = b'\n';
