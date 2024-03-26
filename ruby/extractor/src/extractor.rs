@@ -133,7 +133,7 @@ pub fn run(options: Options) -> std::io::Result<()> {
                 );
 
                 if path.file_name().map_or(false, |ext| ext == ".html.erb") {
-                    let (html_ranges, _) = scan_erb_content(
+                    let html_ranges = scan_erb_content(
                         erb,
                         &source,
                         erb_content_id,
@@ -230,7 +230,7 @@ pub fn run(options: Options) -> std::io::Result<()> {
                 &source,
                 &code_ranges,
             );
-            if content_ranges.len() != 0 {
+            if !content_ranges.is_empty() {
                 extractor::extract(
                     html,
                     "HTML",
@@ -330,42 +330,22 @@ fn scan_erb_code(
     (ranges, line_breaks)
 }
 
-// TODO: deduplicate
 fn scan_erb_content(
     erb: Language,
     source: &[u8],
     content_id: u16,
-) -> (Vec<Range>, Vec<usize>) {
+) -> Vec<Range> {
     let mut parser = Parser::new();
     parser.set_language(erb).unwrap();
     let tree = parser.parse(source, None).expect("Failed to parse file");
     let mut ranges = Vec::new();
-    let mut line_breaks = vec![];
 
     for n in tree.root_node().children(&mut tree.walk()) {
         if n.kind_id() == content_id {
-            let mut range = n.range();
-            if range.end_byte < source.len() {
-                line_breaks.push(range.end_byte);
-                range.end_byte += 1;
-                range.end_point.column += 1;
-            }
-            ranges.push(range);
+            ranges.push(n.range());
         }
     }
-
-    if ranges.is_empty() {
-        let root = tree.root_node();
-
-        // Add an empty range at the end of the file
-        ranges.push(Range {
-            start_byte: root.end_byte(),
-            end_byte: root.end_byte(),
-            start_point: root.end_position(),
-            end_point: root.end_position(),
-        });
-    }
-    (ranges, line_breaks)
+    ranges
 }
 
 /// Advance `index` to the next non-whitespace character.
