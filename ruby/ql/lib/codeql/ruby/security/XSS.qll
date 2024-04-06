@@ -20,6 +20,11 @@ private import codeql.ruby.dataflow.internal.DataFlowDispatch
  * extension points for adding your own.
  */
 private module Shared {
+  newtype FlowState =
+    UnmarkedAndTainted() or
+    MarkedSafeAndUntainted() or
+    MarkedSafeAndTainted()
+
   /**
    * A data flow source for "server-side cross-site scripting" vulnerabilities.
    */
@@ -28,7 +33,9 @@ private module Shared {
   /**
    * A data flow sink for "server-side cross-site scripting" vulnerabilities.
    */
-  abstract class Sink extends DataFlow::Node { }
+  abstract class Sink extends DataFlow::Node {
+    abstract FlowState getState();
+  }
 
   /**
    * A sanitizer for "server-side cross-site scripting" vulnerabilities.
@@ -58,16 +65,20 @@ private module Shared {
     ErbRawOutputDirective() {
       exists(ErbOutputDirective d | d.isRaw() | this.asExpr().getExpr() = d.getTerminalStmt())
     }
+
+    override FlowState getState() {
+      result = UnmarkedAndTainted()
+      or
+      result = MarkedSafeAndTainted()
+    }
   }
 
-  /**
-   * An `html_safe` call marking the output as not requiring HTML escaping,
-   * considered as a flow sink.
-   */
-  class HtmlSafeCallAsSink extends Sink {
-    HtmlSafeCallAsSink() {
-      this = any(DataFlow::CallNode call | call.getMethodName() = "html_safe").getReceiver()
+  class ErbSafeOutputDirective extends Sink {
+    ErbSafeOutputDirective() {
+      exists(ErbOutputDirective d | not d.isRaw() | this.asExpr().getExpr() = d.getTerminalStmt())
     }
+
+    override FlowState getState() { result = MarkedSafeAndTainted() }
   }
 
   /**
@@ -75,6 +86,12 @@ private module Shared {
    */
   class RawCallArgumentAsSink extends Sink, ErbOutputMethodCallArgumentNode {
     RawCallArgumentAsSink() { this.getCall() instanceof RawCall }
+
+    override FlowState getState() {
+      result = UnmarkedAndTainted()
+      or
+      result = MarkedSafeAndTainted()
+    }
   }
 
   /**
@@ -87,6 +104,12 @@ private module Shared {
         d.getTerminalStmt() = c and this.asExpr().getExpr() = c.getRawArgument()
       )
     }
+
+    override FlowState getState() {
+      result = UnmarkedAndTainted()
+      or
+      result = MarkedSafeAndTainted()
+    }
   }
 
   /**
@@ -95,7 +118,14 @@ private module Shared {
    */
   class ArgumentInterpretedAsUrlAsSink extends Sink, ErbOutputMethodCallArgumentNode,
     ActionView::ArgumentInterpretedAsUrl
-  { }
+  {
+    // TODO: verify
+    override FlowState getState() {
+      result = UnmarkedAndTainted()
+      or
+      result = MarkedSafeAndTainted()
+    }
+  }
 
   /**
    * A argument to a call to the `link_to` method, which does not expect
@@ -104,6 +134,13 @@ private module Shared {
   class LinkToCallArgumentAsSink extends Sink, ErbOutputMethodCallArgumentNode {
     LinkToCallArgumentAsSink() {
       this.asExpr().getExpr() = this.getCall().(LinkToCall).getPathArgument()
+    }
+
+    // TODO: verify
+    override FlowState getState() {
+      result = UnmarkedAndTainted()
+      or
+      result = MarkedSafeAndTainted()
     }
   }
 
@@ -115,6 +152,13 @@ private module Shared {
       |
         this = a.getValue()
       )
+    }
+
+    // TODO: verify
+    override FlowState getState() {
+      result = UnmarkedAndTainted()
+      or
+      result = MarkedSafeAndTainted()
     }
   }
 
@@ -241,12 +285,27 @@ private module Shared {
   /**
    * An additional step that is preserves dataflow in the context of XSS.
    */
-  predicate isAdditionalXssFlowStep(DataFlow::Node node1, DataFlow::Node node2) {
-    isFlowFromControllerInstanceVariable(node1, node2)
+  predicate isAdditionalXssFlowStep(
+    DataFlow::Node nodeFrom, FlowState stateFrom, DataFlow::Node nodeTo, FlowState stateTo
+  ) {
+    stateFrom = stateTo and
+    (
+      isFlowFromControllerInstanceVariable(nodeFrom, nodeTo)
+      or
+      isFlowIntoHelperMethod(nodeFrom, nodeTo)
+      or
+      isFlowFromHelperMethod(nodeFrom, nodeTo)
+    )
     or
-    isFlowIntoHelperMethod(node1, node2)
-    or
-    isFlowFromHelperMethod(node1, node2)
+    exists(DataFlow::CallNode htmlSafeCall |
+      htmlSafeCall.getMethodName() = "html_safe" and
+      nodeTo = htmlSafeCall and
+      nodeFrom = htmlSafeCall.getReceiver()
+    |
+      stateFrom = UnmarkedAndTainted() and stateTo = MarkedSafeAndTainted()
+      or
+      not stateFrom = UnmarkedAndTainted() and stateTo = stateFrom
+    )
   }
 
   private predicate htmlSafeGuard(CfgNodes::AstCfgNode guard, CfgNode testedNode, boolean branch) {
@@ -269,8 +328,12 @@ private module Shared {
  * extension points for adding your own.
  */
 module ReflectedXss {
+  class FlowState = Shared::FlowState;
+
   /** A data flow source for stored XSS vulnerabilities. */
-  abstract class Source extends Shared::Source { }
+  abstract class Source extends Shared::Source {
+    abstract FlowState getState();
+  }
 
   /** A data flow sink for stored XSS vulnerabilities. */
   class Sink = Shared::Sink;
@@ -281,13 +344,24 @@ module ReflectedXss {
   /**
    * An additional step that is preserves dataflow in the context of reflected XSS.
    */
-  predicate isAdditionalXssTaintStep = Shared::isAdditionalXssFlowStep/2;
+  predicate isAdditionalXssTaintStep = Shared::isAdditionalXssFlowStep/4;
 
   /**
    * A HTTP request input, considered as a flow source.
    */
   class HttpRequestInputAccessAsSource extends Source, Http::Server::RequestInputAccess {
     HttpRequestInputAccessAsSource() { this.isThirdPartyControllable() }
+
+    override FlowState getState() { result = Shared::UnmarkedAndTainted() }
+  }
+
+  /**
+   * An `html_safe` call, considered as a flow source.
+   */
+  class HtmlSafeCallAsSource extends Source, DataFlow::CallNode {
+    HtmlSafeCallAsSource() { this.getMethodName() = "html_safe" }
+
+    override FlowState getState() { result = Shared::MarkedSafeAndUntainted() }
   }
 }
 
@@ -307,8 +381,9 @@ private module OrmTracking {
     // Select any call receiver and narrow down later
     predicate isSink(DataFlow::Node sink) { sink = any(DataFlow::CallNode c).getReceiver() }
 
+    // TODO: flow states?
     predicate isAdditionalFlowStep(DataFlow::Node node1, DataFlow::Node node2) {
-      Shared::isAdditionalXssFlowStep(node1, node2)
+      Shared::isAdditionalXssFlowStep(node1, _, node2, _)
     }
 
     predicate isBarrierIn(DataFlow::Node node) { node instanceof DataFlow::SelfParameterNode }
@@ -321,6 +396,8 @@ private module OrmTracking {
 
 /** Provides default sources, sinks and sanitizers for detecting stored cross-site scripting (XSS) vulnerabilities. */
 module StoredXss {
+  class FlowState = Shared::FlowState;
+
   /** A data flow source for stored XSS vulnerabilities. */
   abstract class Source extends Shared::Source { }
 
@@ -333,7 +410,7 @@ module StoredXss {
   /**
    * An additional step that preserves dataflow in the context of stored XSS.
    */
-  predicate isAdditionalXssTaintStep = Shared::isAdditionalXssFlowStep/2;
+  predicate isAdditionalXssTaintStep = Shared::isAdditionalXssFlowStep/4;
 
   private class OrmFieldAsSource extends Source instanceof DataFlow::CallNode {
     OrmFieldAsSource() {

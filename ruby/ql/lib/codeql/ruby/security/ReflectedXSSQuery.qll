@@ -31,26 +31,32 @@ deprecated module ReflectedXss {
     override predicate isSanitizer(DataFlow::Node node) { node instanceof Sanitizer }
 
     override predicate isAdditionalTaintStep(DataFlow::Node node1, DataFlow::Node node2) {
-      isAdditionalXssTaintStep(node1, node2)
+      isAdditionalXssTaintStep(node1, _, node2, _)
     }
   }
 }
 
-private module ReflectedXssConfig implements DataFlow::ConfigSig {
+private module ReflectedXssConfig implements DataFlow::StateConfigSig {
   private import XSS::ReflectedXss as RX
 
-  predicate isSource(DataFlow::Node source) { source instanceof RX::Source }
+  class FlowState = RX::FlowState;
 
-  predicate isSink(DataFlow::Node sink) { sink instanceof RX::Sink }
+  predicate isSource(DataFlow::Node source, FlowState state) {
+    source.(RX::Source).getState() = state
+  }
+
+  predicate isSink(DataFlow::Node sink, FlowState state) { sink.(RX::Sink).getState() = state }
 
   predicate isBarrier(DataFlow::Node node) { node instanceof RX::Sanitizer }
 
-  predicate isAdditionalFlowStep(DataFlow::Node node1, DataFlow::Node node2) {
-    RX::isAdditionalXssTaintStep(node1, node2)
+  predicate isAdditionalFlowStep(
+    DataFlow::Node node1, FlowState state1, DataFlow::Node node2, FlowState state2
+  ) {
+    RX::isAdditionalXssTaintStep(node1, state1, node2, state2)
   }
 }
 
 /**
  * Taint-tracking for detecting "reflected server-side cross-site scripting" vulnerabilities.
  */
-module ReflectedXssFlow = TaintTracking::Global<ReflectedXssConfig>;
+module ReflectedXssFlow = TaintTracking::GlobalWithState<ReflectedXssConfig>;
