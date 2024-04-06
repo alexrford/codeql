@@ -36,7 +36,7 @@ deprecated module StoredXss {
     }
 
     override predicate isAdditionalTaintStep(DataFlow::Node node1, DataFlow::Node node2) {
-      isAdditionalXssTaintStep(node1, node2)
+      isAdditionalXssTaintStep(node1, _, node2, _)
     }
   }
 
@@ -53,7 +53,7 @@ private module StoredXssConfig implements DataFlow::ConfigSig {
   predicate isBarrier(DataFlow::Node node) { node instanceof Sanitizer }
 
   predicate isAdditionalFlowStep(DataFlow::Node node1, DataFlow::Node node2) {
-    isAdditionalXssTaintStep(node1, node2)
+    isAdditionalXssTaintStep(node1, _, node2, _)
   }
 }
 
