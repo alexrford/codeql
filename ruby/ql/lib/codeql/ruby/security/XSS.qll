@@ -20,15 +20,65 @@ private import codeql.ruby.dataflow.internal.DataFlowDispatch
  * extension points for adding your own.
  */
 private module Shared {
-  newtype FlowState =
-    UnmarkedAndTainted() or
-    MarkedSafeAndUntainted() or
-    MarkedSafeAndTainted()
+  private newtype TFlowState =
+    TUnmarkedAndTainted() or
+    TMarkedSafeAndUntainted() or
+    TMarkedSafeAndTainted()
+
+  class FlowState extends TFlowState {
+    abstract predicate isTainted();
+
+    abstract predicate isMarkedSafe();
+
+    abstract FlowState markSafe();
+
+    abstract FlowState taint();
+
+    abstract string toString();
+  }
+
+  private class UnmarkedAndTainted extends FlowState, TUnmarkedAndTainted {
+    override predicate isTainted() { any() }
+
+    override predicate isMarkedSafe() { none() }
+
+    override FlowState markSafe() { result instanceof MarkedSafeAndTainted }
+
+    override FlowState taint() { result = this }
+
+    override string toString() { result = "tainted" }
+  }
+
+  private class MarkedSafeAndUntainted extends FlowState, TMarkedSafeAndUntainted {
+    override predicate isTainted() { none() }
+
+    override predicate isMarkedSafe() { any() }
+
+    override FlowState markSafe() { result = this }
+
+    override FlowState taint() { result instanceof MarkedSafeAndTainted }
+
+    override string toString() { result = "marked html_safe" }
+  }
+
+  private class MarkedSafeAndTainted extends FlowState, TMarkedSafeAndTainted {
+    override predicate isTainted() { any() }
+
+    override predicate isMarkedSafe() { any() }
+
+    override FlowState markSafe() { result = this }
+
+    override FlowState taint() { result = this }
+
+    override string toString() { result = "marked html_safe and tainted" }
+  }
 
   /**
    * A data flow source for "server-side cross-site scripting" vulnerabilities.
    */
-  abstract class Source extends DataFlow::Node { }
+  abstract class Source extends DataFlow::Node {
+    abstract FlowState getState();
+  }
 
   /**
    * A data flow sink for "server-side cross-site scripting" vulnerabilities.
@@ -41,6 +91,29 @@ private module Shared {
    * A sanitizer for "server-side cross-site scripting" vulnerabilities.
    */
   abstract class Sanitizer extends DataFlow::Node { }
+
+  /*
+   * A call to `html_safe`.
+   */
+
+  class HtmlSafeCall extends DataFlow::CallNode {
+    HtmlSafeCall() { this.getMethodName() = "html_safe" }
+  }
+
+  /**
+   * An `html_safe` call, considered as a flow source.
+   */
+  private class HtmlSafeCallAsSource extends Source, HtmlSafeCall {
+    // TODO: limit cases of `html_safe` `Source`s where we have flow into the call
+    // HtmlSafeCallAsSource() {
+    //   exists(ConstantValue cv |
+    //     cv = this.(HtmlSafeCall).getReceiver().getConstantValue()
+    //   )
+    // }
+    // cases where an `html_safe` call is also tainted are handled by the
+    // additional `html_safe` flow step
+    override FlowState getState() { result.isMarkedSafe() and not result.isTainted() }
+  }
 
   private class ErbOutputMethodCallArgumentNode extends DataFlow::Node {
     private MethodCall call;
@@ -66,19 +139,22 @@ private module Shared {
       exists(ErbOutputDirective d | d.isRaw() | this.asExpr().getExpr() = d.getTerminalStmt())
     }
 
-    override FlowState getState() {
-      result = UnmarkedAndTainted()
-      or
-      result = MarkedSafeAndTainted()
-    }
+    override FlowState getState() { result.isTainted() }
   }
 
+  /**
+   * A value output using a safe erb output directive, but where the value has
+   * been explicitly marked as HTML safe, so will not be escaped.
+   * ```erb
+   * <%= sink.html_safe %>
+   * ```
+   */
   class ErbSafeOutputDirective extends Sink {
     ErbSafeOutputDirective() {
       exists(ErbOutputDirective d | not d.isRaw() | this.asExpr().getExpr() = d.getTerminalStmt())
     }
 
-    override FlowState getState() { result = MarkedSafeAndTainted() }
+    override FlowState getState() { result.isTainted() and result.isMarkedSafe() }
   }
 
   /**
@@ -87,11 +163,7 @@ private module Shared {
   class RawCallArgumentAsSink extends Sink, ErbOutputMethodCallArgumentNode {
     RawCallArgumentAsSink() { this.getCall() instanceof RawCall }
 
-    override FlowState getState() {
-      result = UnmarkedAndTainted()
-      or
-      result = MarkedSafeAndTainted()
-    }
+    override FlowState getState() { result.isTainted() }
   }
 
   /**
@@ -105,11 +177,7 @@ private module Shared {
       )
     }
 
-    override FlowState getState() {
-      result = UnmarkedAndTainted()
-      or
-      result = MarkedSafeAndTainted()
-    }
+    override FlowState getState() { result.isTainted() }
   }
 
   /**
@@ -119,12 +187,8 @@ private module Shared {
   class ArgumentInterpretedAsUrlAsSink extends Sink, ErbOutputMethodCallArgumentNode,
     ActionView::ArgumentInterpretedAsUrl
   {
-    // TODO: verify
-    override FlowState getState() {
-      result = UnmarkedAndTainted()
-      or
-      result = MarkedSafeAndTainted()
-    }
+    // Any tainted node is potentially dangerous
+    override FlowState getState() { result.isTainted() }
   }
 
   /**
@@ -136,12 +200,8 @@ private module Shared {
       this.asExpr().getExpr() = this.getCall().(LinkToCall).getPathArgument()
     }
 
-    // TODO: verify
-    override FlowState getState() {
-      result = UnmarkedAndTainted()
-      or
-      result = MarkedSafeAndTainted()
-    }
+    // `link_to` does not escape path arguments
+    override FlowState getState() { result.isTainted() }
   }
 
   /** A write to an HTTP response header, considered as a flow sink. */
@@ -155,11 +215,7 @@ private module Shared {
     }
 
     // TODO: verify
-    override FlowState getState() {
-      result = UnmarkedAndTainted()
-      or
-      result = MarkedSafeAndTainted()
-    }
+    override FlowState getState() { result.isTainted() }
   }
 
   /**
@@ -297,15 +353,8 @@ private module Shared {
       isFlowFromHelperMethod(nodeFrom, nodeTo)
     )
     or
-    exists(DataFlow::CallNode htmlSafeCall |
-      htmlSafeCall.getMethodName() = "html_safe" and
-      nodeTo = htmlSafeCall and
-      nodeFrom = htmlSafeCall.getReceiver()
-    |
-      stateFrom = UnmarkedAndTainted() and stateTo = MarkedSafeAndTainted()
-      or
-      not stateFrom = UnmarkedAndTainted() and stateTo = stateFrom
-    )
+    nodeFrom = nodeTo.(Shared::HtmlSafeCall).getReceiver() and
+    stateTo = stateFrom.markSafe()
   }
 
   private predicate htmlSafeGuard(CfgNodes::AstCfgNode guard, CfgNode testedNode, boolean branch) {
@@ -331,9 +380,7 @@ module ReflectedXss {
   class FlowState = Shared::FlowState;
 
   /** A data flow source for stored XSS vulnerabilities. */
-  abstract class Source extends Shared::Source {
-    abstract FlowState getState();
-  }
+  class Source = Shared::Source;
 
   /** A data flow sink for stored XSS vulnerabilities. */
   class Sink = Shared::Sink;
@@ -352,16 +399,7 @@ module ReflectedXss {
   class HttpRequestInputAccessAsSource extends Source, Http::Server::RequestInputAccess {
     HttpRequestInputAccessAsSource() { this.isThirdPartyControllable() }
 
-    override FlowState getState() { result = Shared::UnmarkedAndTainted() }
-  }
-
-  /**
-   * An `html_safe` call, considered as a flow source.
-   */
-  class HtmlSafeCallAsSource extends Source, DataFlow::CallNode {
-    HtmlSafeCallAsSource() { this.getMethodName() = "html_safe" }
-
-    override FlowState getState() { result = Shared::MarkedSafeAndUntainted() }
+    override FlowState getState() { result.isTainted() and not result.isMarkedSafe() }
   }
 }
 
@@ -421,9 +459,13 @@ module StoredXss {
         not exists(this.getBlock())
       )
     }
+
+    override FlowState getState() { result.isTainted() and not result.isMarkedSafe() }
   }
 
   /** A file read, considered as a flow source for stored XSS. */
-  private class FileSystemReadAccessAsSource extends Source instanceof FileSystemReadAccess { }
+  private class FileSystemReadAccessAsSource extends Source instanceof FileSystemReadAccess {
+    override FlowState getState() { result.isTainted() and not result.isMarkedSafe() }
+  }
   // TODO: Consider `FileNameSource` flowing to script tag `src` attributes and similar
 }

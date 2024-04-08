@@ -40,24 +40,30 @@ deprecated module StoredXss {
     }
   }
 
-  import TaintTracking::Global<StoredXssConfig>
+  import TaintTracking::GlobalWithState<StoredXssConfig>
 }
 
-private module StoredXssConfig implements DataFlow::ConfigSig {
-  private import XSS::StoredXss
+private module StoredXssConfig implements DataFlow::StateConfigSig {
+  private import XSS::StoredXss as SX
 
-  predicate isSource(DataFlow::Node source) { source instanceof Source }
+  class FlowState = SX::FlowState;
 
-  predicate isSink(DataFlow::Node sink) { sink instanceof Sink }
+  predicate isSource(DataFlow::Node source, FlowState state) {
+    source.(SX::Source).getState() = state
+  }
 
-  predicate isBarrier(DataFlow::Node node) { node instanceof Sanitizer }
+  predicate isSink(DataFlow::Node sink, FlowState state) { sink.(SX::Sink).getState() = state }
 
-  predicate isAdditionalFlowStep(DataFlow::Node node1, DataFlow::Node node2) {
-    isAdditionalXssTaintStep(node1, _, node2, _)
+  predicate isBarrier(DataFlow::Node node) { node instanceof SX::Sanitizer }
+
+  predicate isAdditionalFlowStep(
+    DataFlow::Node node1, FlowState state1, DataFlow::Node node2, FlowState state2
+  ) {
+    SX::isAdditionalXssTaintStep(node1, state1, node2, state2)
   }
 }
 
 /**
  * Taint-tracking for reasoning about Stored XSS.
  */
-module StoredXssFlow = TaintTracking::Global<StoredXssConfig>;
+module StoredXssFlow = TaintTracking::GlobalWithState<StoredXssConfig>;

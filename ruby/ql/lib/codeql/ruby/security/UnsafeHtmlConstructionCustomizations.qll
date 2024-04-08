@@ -1,3 +1,5 @@
+// TODO: update to support XSS with flow states i.e. where `html_safe` calls
+// are not sinks
 /**
  * Provides default sources, sinks and sanitizers for reasoning about
  * HTML constructed from library input vulnerabilities, as
