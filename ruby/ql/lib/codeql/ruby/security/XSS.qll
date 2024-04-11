@@ -104,12 +104,6 @@ private module Shared {
    * An `html_safe` call, considered as a flow source.
    */
   private class HtmlSafeCallAsSource extends Source, HtmlSafeCall {
-    // TODO: limit cases of `html_safe` `Source`s where we have flow into the call
-    // HtmlSafeCallAsSource() {
-    //   exists(ConstantValue cv |
-    //     cv = this.(HtmlSafeCall).getReceiver().getConstantValue()
-    //   )
-    // }
     // cases where an `html_safe` call is also tainted are handled by the
     // additional `html_safe` flow step
     override FlowState getState() { result.isMarkedSafe() and not result.isTainted() }
