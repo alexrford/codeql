@@ -43,15 +43,23 @@ module UnsafeHtmlConstruction {
   /** A sanitizer from the reflected-xss query, which is also a sanitizer for unsafe HTML construction. */
   private class ReflectedXssSanitizers extends Sanitizer instanceof ReflectedXss::Sanitizer { }
 
+  abstract private class MidSink extends DataFlow::Node { }
+
+  private class MidSinkXss extends MidSink instanceof ReflectedXss::Sink { }
+
+  private class MidSinkHtmlSafeCall extends MidSink, DataFlow::Node {
+    MidSinkHtmlSafeCall() {
+      exists(DataFlow::CallNode c | c.getMethodName() = "html_safe" | this = c.getReceiver())
+    }
+  }
+
   /** Gets a node that eventually ends up in the XSS `sink`. */
-  private DataFlow::Node getANodeThatEndsInXssSink(ReflectedXss::Sink sink) {
+  private DataFlow::Node getANodeThatEndsInXssSink(MidSink sink) {
     result = getANodeThatEndsInXssSink(TypeBackTracker::end(), sink)
   }
 
   /** Gets a node that is eventually ends up in the XSS `sink`, type-tracked with `t`. */
-  private DataFlow::LocalSourceNode getANodeThatEndsInXssSink(
-    TypeBackTracker t, ReflectedXss::Sink sink
-  ) {
+  private DataFlow::LocalSourceNode getANodeThatEndsInXssSink(TypeBackTracker t, MidSink sink) {
     t.start() and
     result = sink.getALocalSource()
     or
@@ -63,7 +71,7 @@ module UnsafeHtmlConstruction {
    * where the resulting string ends up being used in an XSS sink.
    */
   private class StringFormatAsSink extends Sink {
-    ReflectedXss::Sink s;
+    MidSink s;
 
     StringFormatAsSink() {
       exists(Ast::StringlikeLiteral lit |
@@ -84,7 +92,7 @@ module UnsafeHtmlConstruction {
    * where the resulting string ends up being used in an XSS sink.
    */
   private class TaintedFormatStringAsSink extends Sink {
-    ReflectedXss::Sink s;
+    MidSink s;
 
     TaintedFormatStringAsSink() {
       exists(TaintedFormat::PrintfStyleCall call |
