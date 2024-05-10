@@ -54,7 +54,9 @@ private module StoredXssConfig implements DataFlow::StateConfigSig {
 
   predicate isSink(DataFlow::Node sink, FlowState state) { sink.(SX::Sink).getState() = state }
 
-  predicate isBarrier(DataFlow::Node node) { node instanceof SX::Sanitizer }
+  predicate isBarrier(DataFlow::Node node, FlowState state) {
+    node instanceof SX::Sanitizer and state.isTainted()
+  }
 
   predicate isAdditionalFlowStep(
     DataFlow::Node node1, FlowState state1, DataFlow::Node node2, FlowState state2

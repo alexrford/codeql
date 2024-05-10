@@ -47,7 +47,9 @@ private module ReflectedXssConfig implements DataFlow::StateConfigSig {
 
   predicate isSink(DataFlow::Node sink, FlowState state) { sink.(RX::Sink).getState() = state }
 
-  predicate isBarrier(DataFlow::Node node) { node instanceof RX::Sanitizer }
+  predicate isBarrier(DataFlow::Node node, FlowState state) {
+    node instanceof RX::Sanitizer and state.isTainted()
+  }
 
   predicate isAdditionalFlowStep(
     DataFlow::Node node1, FlowState state1, DataFlow::Node node2, FlowState state2
