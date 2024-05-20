@@ -16,7 +16,7 @@ private import codeql.ruby.dataflow.internal.DataFlowDispatch
 
 /**
  * Provides default sources, sinks and sanitizers for detecting
- * "server-side cross-site scripting" vulnerabilities, as well as
+ * "cross-site scripting" vulnerabilities, as well as
  * extension points for adding your own.
  */
 private module Shared {
@@ -25,6 +25,15 @@ private module Shared {
     TMarkedSafeAndUntainted() or
     TMarkedSafeAndTainted()
 
+  /**
+   * Certain cross-site scripting sinks are vulnerable only if the sink node
+   * is both:
+   *  - tainted by untrusted data
+   *  - marked as being HTML safe
+   * For example, in Rails the the `<%=` output directive will by HTML escape its
+   * output by default, but will skip this escaping if the output node has been
+   * marked as being `html_safe`.
+   */
   class FlowState extends TFlowState {
     abstract predicate isTainted();
 
@@ -37,6 +46,9 @@ private module Shared {
     abstract string toString();
   }
 
+  /**
+   * A state for a node that is tainted by untrusted data, but is not marked as HTML safe.
+   */
   private class UnmarkedAndTainted extends FlowState, TUnmarkedAndTainted {
     override predicate isTainted() { any() }
 
@@ -49,6 +61,9 @@ private module Shared {
     override string toString() { result = "tainted" }
   }
 
+  /**
+   * A state for a node that is marked as HTML safe, but is not tainted by untrusted data.
+   */
   private class MarkedSafeAndUntainted extends FlowState, TMarkedSafeAndUntainted {
     override predicate isTainted() { none() }
 
@@ -61,6 +76,9 @@ private module Shared {
     override string toString() { result = "marked html_safe" }
   }
 
+  /**
+   * A state for a node that is both tainted by untrusted data and marked as HTML safe.
+   */
   private class MarkedSafeAndTainted extends FlowState, TMarkedSafeAndTainted {
     override predicate isTainted() { any() }
 
@@ -74,21 +92,21 @@ private module Shared {
   }
 
   /**
-   * A data flow source for "server-side cross-site scripting" vulnerabilities.
+   * A data flow source for "cross-site scripting" vulnerabilities.
    */
   abstract class Source extends DataFlow::Node {
     abstract FlowState getState();
   }
 
   /**
-   * A data flow sink for "server-side cross-site scripting" vulnerabilities.
+   * A data flow sink for "cross-site scripting" vulnerabilities.
    */
   abstract class Sink extends DataFlow::Node {
     abstract FlowState getState();
   }
 
   /**
-   * A sanitizer for "server-side cross-site scripting" vulnerabilities.
+   * A sanitizer for "cross-site scripting" vulnerabilities.
    */
   abstract class Sanitizer extends DataFlow::Node { }
 
@@ -104,8 +122,8 @@ private module Shared {
    * An `html_safe` call, considered as a flow source.
    */
   private class HtmlSafeCallAsSource extends Source, HtmlSafeCall {
-    // cases where an `html_safe` call is also tainted are handled by the
-    // additional `html_safe` flow step
+    // Cases where an `html_safe` call is called on an already tainted receiver
+    // are handled by the additional `html_safe` flow step.
     override FlowState getState() { result.isMarkedSafe() and not result.isTainted() }
   }
 
