@@ -52,7 +52,7 @@ module Filters {
    * register callbacks (`before_action`, `after_action` etc.) and calls that
    * remove callbacks (`skip_before_action`, `skip_after_action` etc.)
    */
-  private class FilterCall extends MethodCallCfgNode {
+  class FilterCall extends MethodCallCfgNode {
     private FilterKind kind;
 
     FilterCall() {
